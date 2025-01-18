@@ -15,7 +15,8 @@
 
 extern int g_majorVersionOfClient;
 
-int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
+// query and get result  other true is no test sql
+int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
     int ret = 0;
 
     if (g_arguments->terminate) {
@@ -30,40 +31,78 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                                    0, g_arguments->port, false,
                                    pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
-            errorPrint("====restful return fail, threadID[%u]\n",
-                       threadID);
+            errorPrint("====restful return fail, threadID[%u]\n", threadID);
             ret = -1;
         }
     } else {
+        // query
         TAOS *taos = pThreadInfo->conn->taos;
         int64_t rows  = 0;
         TAOS_RES *res = taos_query(taos, command);
         int code = taos_errno(res);
         if (res == NULL || code) {
-            if (YES_IF_FAILED == g_arguments->continueIfFail) {
-                warnPrint("failed to execute sql:%s, "
-                            "code: 0x%08x, reason:%s\n",
-                            command, code, taos_errstr(res));
-            } else {
-                errorPrint("failed to execute sql:%s, "
-                            "code: 0x%08x, reason:%s\n",
-                            command, code, taos_errstr(res));
-                ret = -1;
-            }
+            // failed query
+            errorPrint("failed to execute sql:%s, "
+                        "code: 0x%08x, reason:%s\n",
+                        command, code, taos_errstr(res));
+            ret = -1;
         } else {
-            //if (strlen(pThreadInfo->filePath) > 0) {
+            // succ query
+            if (!other)
                 rows = fetchResult(res, pThreadInfo);
-            //}
         }
-        taos_free_result(res);
+
+        // free result
+        if (res) {
+            taos_free_result(res);
+        }
         debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
     }
+
+    // record succ or fail count
+    if (ret !=0) {
+        if (!other) 
+            pThreadInfo->nSucc ++;
+        if (YES_IF_FAILED == g_arguments->continueIfFail) {
+            // force continue , so ignore this error
+            ret = 0;
+        }
+    } else if(!other) {
+        pThreadInfo->nFail ++;
+    }
+
     return ret;
 }
 
+// interlligent sleep
+void autoSleep(uint64_t st, uint64_t et) {
+    if (g_queryInfo.specifiedQueryInfo.queryInterval &&
+        (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval * 1000) {
+        toolsMsleep((int32_t)(
+                    g_queryInfo.specifiedQueryInfo.queryInterval*1000
+                    - (et - st)));  // ms
+    }
+}
+
+// reset 
+int32_t resetQueryCache(qThreadInfo* pThreadInfo) {    
+    // execute sql 
+    if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE"), true) {
+        errorPrint("%s() LN%d, reset query cache failed\n",
+                    __func__, __LINE__);
+        break;
+    }
+}
+
+
+
+//
+//  ---------------------------------  second levle funtion for Thread -----------------------------------
+//
+
 // spec query mixed thread
 static void *specQueryMixThread(void *sarg) {
-    queryThreadInfo *pThreadInfo = (queryThreadInfo*)sarg;
+    qThreadInfo *pThreadInfo = (qThreadInfo*)sarg;
 #ifdef LINUX
     prctl(PR_SET_NAME, "specQueryMixThread");
 #endif
@@ -84,58 +123,30 @@ static void *specQueryMixThread(void *sarg) {
     for (int i = pThreadInfo->start_sql; i <= pThreadInfo->end_sql; ++i) {
         SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
         for (int j = 0; j < queryTimes; ++j) {
+            // check user cancel test
             if (g_arguments->terminate) {
                 return NULL;
             }
+
+            // reset cache
             if (g_queryInfo.reset_query_cache) {
-                if (queryDbExecCall(pThreadInfo->conn,
-                                    "RESET QUERY CACHE")) {
-                    errorPrint("%s() LN%d, reset query cache failed\n",
-                               __func__, __LINE__);
+                if (resetQueryCache(pThreadInfo)) {
+                    errorPrint("%s() LN%d, reset query cache failed\n", __func__, __LINE__);
                     return NULL;
                 }
             }
+
+            // execute sql
             st = toolsGetTimestampUs();
-            if (g_queryInfo.iface == REST_IFACE) {
-                int retCode = postProceSql(sql->command, g_queryInfo.dbName,
-                                           0, g_queryInfo.iface, 0,
-                                           g_arguments->port,
-                                           false, pThreadInfo->sockfd, "");
-                if (retCode) {
-                    errorPrint("thread[%d]: restful query <%s> failed\n",
-                            pThreadInfo->threadId, sql->command);
-                    continue;
-                }
-            } else {
-                TAOS_RES *res = taos_query(pThreadInfo->conn->taos,
-                                           sql->command);
-                if (res == NULL || taos_errno(res) != 0) {
-                    if (YES_IF_FAILED == g_arguments->continueIfFail) {
-                        warnPrint(
-                                "thread[%d]: failed to execute sql :%s, "
-                                "code: 0x%x, reason: %s\n",
-                                pThreadInfo->threadId,
-                                sql->command,
-                                taos_errno(res), taos_errstr(res));
-                    } else {
-                        errorPrint(
-                                "thread[%d]: failed to execute sql :%s, "
-                                "code: 0x%x, reason: %s\n",
-                                pThreadInfo->threadId,
-                                sql->command,
-                                taos_errno(res), taos_errstr(res));
-                        if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
-                                taos_errno(res)) {
-                            taos_free_result(res);
-                            return NULL;
-                        }
-                    }
-                    taos_free_result(res);
-                    continue;
-                }
-                taos_free_result(res);
+            int ret = selectAndGetResult(pThreadInfo, sql->command, false);
+            if (ret) {
+                g_fail = true;
+                errorPrint("failed call mix selectAndGetResult, i=%d j=%d", i, j);
+                return NULL;
             }
             et = toolsGetTimestampUs();
+
+            // delay
             int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
             *delay = et - st;
             debugPrint("%s() LN%d, delay: %"PRId64"\n",
@@ -159,7 +170,7 @@ static void *specQueryMixThread(void *sarg) {
 
 // spec query thread
 static void *specQueryThread(void *sarg) {
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
+    qThreadInfo *pThreadInfo = (qThreadInfo *)sarg;
 #ifdef LINUX
     prctl(PR_SET_NAME, "specQueryThread");
 #endif
@@ -200,25 +211,23 @@ static void *specQueryThread(void *sarg) {
             return NULL;
         }
 
-        if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval * 1000) {
-            toolsMsleep((int32_t)(
-                        g_queryInfo.specifiedQueryInfo.queryInterval*1000
-                        - (et - st)));  // ms
-        }
+        // sleep
+        autoSleep(st, et);
+
+        // reset cache
         if (g_queryInfo.reset_query_cache) {
-            // execute sql 
-            if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE")) {
-                errorPrint("%s() LN%d, reset query cache failed\n",
-                           __func__, __LINE__);
+            if (resetQueryCache(pThreadInfo)) {
+                errorPrint("%s() LN%d, reset query cache failed\n", __func__, __LINE__);
                 return NULL;
             }
         }
 
         st = toolsGetTimestampUs();
-        int ret = selectAndGetResult(pThreadInfo, sql->command);
+        int ret = selectAndGetResult(pThreadInfo, sql->command, false);
         if (ret) {
             g_fail = true;
+            errorPrint("failed call spec selectAndGetResult, index=%d\n", index);
+            break;
         }
 
         et = toolsGetTimestampUs();
@@ -256,8 +265,9 @@ static void *specQueryThread(void *sarg) {
             return NULL;
         }
     }
-    qsort(pThreadInfo->query_delay_list, queryTimes,
-            sizeof(uint64_t), compare);
+
+    // delay
+    qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
     pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
     return NULL;
 }
@@ -265,7 +275,7 @@ static void *specQueryThread(void *sarg) {
 // super table query thread
 static void *stbQueryThread(void *sarg) {
     char *sqlstr = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
+    qThreadInfo *pThreadInfo = (qThreadInfo *)sarg;
 #ifdef LINUX
     prctl(PR_SET_NAME, "stbQueryThread");
 #endif
@@ -278,31 +288,44 @@ static void *stbQueryThread(void *sarg) {
 
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
-        if (g_queryInfo.superQueryInfo.queryInterval
-            && ((et - st) <
-                (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000)) {
-            toolsMsleep((int32_t)
-                        (g_queryInfo.superQueryInfo.queryInterval*1000
-                        - (et - st)));
+
+        // sleep
+        autoSleep(st, et);
+
+        // reset cache
+        if (g_queryInfo.reset_query_cache) {
+            if (resetQueryCache(pThreadInfo)) {
+                errorPrint("%s() LN%d, reset query cache failed\n", __func__, __LINE__);
+                return NULL;
+            }
         }
 
+        // execute
         st = toolsGetTimestampMs();
-        for (int i = (int)pThreadInfo->start_table_from;
-             i <= pThreadInfo->end_table_to; i++) {
+        // for each table
+        for (int i = (int)pThreadInfo->start_table_from; i <= pThreadInfo->end_table_to; i++) {
+            // for each sql
             for (int j = 0; j < g_queryInfo.superQueryInfo.sqlCount; j++) {
                 memset(sqlstr, 0, TSDB_MAX_ALLOWED_SQL_LEN);
-                replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr,
-                                    i);
+                // get real child name sql
+                if(replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr, i)) {
+                    // fault
+                    tmfree(sqlstr);
+                    return NULL;
+                }
+
                 if (g_queryInfo.superQueryInfo.result[j][0] != '\0') {
                     snprintf(pThreadInfo->filePath, MAX_PATH_LEN, "%s-%d",
                             g_queryInfo.superQueryInfo.result[j],
                             pThreadInfo->threadID);
                 }
-                if (selectAndGetResult(pThreadInfo, sqlstr)) {
+                if (selectAndGetResult(pThreadInfo, sqlstr, false)) {
+                    // found error
+                    errorPrint("failed call stb selectAndGetResult, i=%d j=%d\n", i, j);
                     g_fail = true;
+                    tmfree(sqlstr);
+                    return NULL
                 }
-
-                pThreadInfo->totalQueried++;
 
                 int64_t currentPrintTime = toolsGetTimestampMs();
                 int64_t endTs = toolsGetTimestampMs();
@@ -323,11 +346,49 @@ static void *stbQueryThread(void *sarg) {
     return NULL;
 }
 
+//
+// ---------------------------------  firse level function ------------------------------
+//
+
+// init conn
+int32_t initQueryConn(qThreadInfo * pThreadInfo, int iface) {
+    // create conn
+    if (iface == REST_IFACE) {
+        int sockfd = createSockFd();
+        if (sockfd < 0) {
+            return -1;
+        }
+        pThreadInfo->sockfd = sockfd;
+    } else {
+        pThreadInfo->conn = initBenchConn();
+        if (pThreadInfo->conn == NULL) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+// close conn
+void closeQueryConn(qThreadInfo * pThreadInfo, int iface) {
+    if (iface == REST_IFACE) {
+#ifdef WINDOWS
+        closesocket(pThreadInfo->sockfd);
+        WSACleanup();
+#else
+        close(pThreadInfo->sockfd);
+#endif
+    } else {
+        closeBenchConn(pThreadInfo->conn);
+        pThreadInfo->conn = NULL;
+    }
+}
+
 // super table query
 static int stbQuery(uint16_t iface, char* dbName) {
     int ret = -1;
-    pthread_t * pidsOfSub = NULL;
-    threadInfo *infosOfSub = NULL;
+    pthread_t * pidsOfSub   = NULL;
+    qThreadInfo *infosOfSub = NULL;
     //==== create sub threads for query from all sub table of the super table
     if ((g_queryInfo.superQueryInfo.sqlCount > 0)
             && (g_queryInfo.superQueryInfo.threadCnt > 0)) {
@@ -335,7 +396,7 @@ static int stbQuery(uint16_t iface, char* dbName) {
                                 *sizeof(pthread_t),
                                 false);
         infosOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt
-                                 *sizeof(threadInfo), false);
+                                 *sizeof(qThreadInfo), false);
 
         int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
         int     threads = g_queryInfo.superQueryInfo.threadCnt;
@@ -353,24 +414,16 @@ static int stbQuery(uint16_t iface, char* dbName) {
 
         uint64_t tableFrom = 0;
         for (int i = 0; i < threads; i++) {
-            threadInfo *pThreadInfo = infosOfSub + i;
+            qThreadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
                     i < b ? tableFrom + a : tableFrom + a - 1;
             tableFrom = pThreadInfo->end_table_to + 1;
-            if (iface == REST_IFACE) {
-                int sockfd = createSockFd();
-                if (sockfd < 0) {
-                    goto OVER;
-                }
-                pThreadInfo->sockfd = sockfd;
-            } else {
-                pThreadInfo->conn = initBenchConn();
-                if (pThreadInfo->conn == NULL) {
-                    goto OVER;
-                }
+            // create conn
+            if (initQueryConn(pThreadInfo, iface)){
+                goto OVER;
             }
             pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
         }
@@ -379,19 +432,15 @@ static int stbQuery(uint16_t iface, char* dbName) {
         for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
             if (!g_arguments->terminate)
                 pthread_join(pidsOfSub[i], NULL);
-            threadInfo *pThreadInfo = infosOfSub + i;
-            if (iface == REST_IFACE) {
-                destroySockFd(pThreadInfo->sockfd);
-            } else {
-                closeBenchConn(pThreadInfo->conn);
-            }
+            qThreadInfo *pThreadInfo = infosOfSub + i;
+            // close conn
+            closeQueryConn(pThreadInfo, iface);
             if (g_fail) {
                 goto OVER;
             }
         }
         for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; ++i) {
-            g_queryInfo.superQueryInfo.totalQueried
-                += infosOfSub[i].totalQueried;
+            g_queryInfo.superQueryInfo.totalQueried += infosOfSub[i].totalQueried;
         }
     } else {
         return 0;
@@ -431,7 +480,7 @@ void freeSpecialQueryInfo() {
 // spec query thread
 static int specQuery(uint16_t iface, char* dbName) {
     pthread_t * pids = NULL;
-    threadInfo *infos = NULL;
+    qThreadInfo *infos = NULL;
     //==== create sub threads for query from specify table
     int      nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
     uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
@@ -447,13 +496,13 @@ static int specQuery(uint16_t iface, char* dbName) {
 
     // malloc funciton global memory
     pids  = benchCalloc(1, nConcurrent * sizeof(pthread_t),  false);
-    infos = benchCalloc(1, nConcurrent * sizeof(threadInfo), false);
+    infos = benchCalloc(1, nConcurrent * sizeof(qThreadInfo), false);
 
     bool exeError = false;
     for (uint64_t i = 0; i < nSqlCount; i++) {
         // reset
         memset(pids,  0, nConcurrent * sizeof(pthread_t));
-        memset(infos, 0, nConcurrent * sizeof(threadInfo));
+        memset(infos, 0, nConcurrent * sizeof(qThreadInfo));
 
         // get execute sql
         SSQL *sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
@@ -461,26 +510,14 @@ static int specQuery(uint16_t iface, char* dbName) {
         // create threads
         int threadCnt = 0;
         for (int j = 0; j < nConcurrent; j++) {
-           threadInfo *pThreadInfo = infos + j;
+           qThreadInfo *pThreadInfo = infos + j;
            pThreadInfo->threadID = i * nConcurrent + j;
            pThreadInfo->querySeq = i;
-           if (iface == REST_IFACE) {
-                int sockfd = createSockFd();
-                // int iMode = 1;
-                // ioctl(sockfd, FIONBIO, &iMode);
-                if (sockfd < 0) {
-                    exeError = true;
 
-                    break;
-                }
-                pThreadInfo->sockfd = sockfd;
-           } else {
-                pThreadInfo->conn = initBenchConn();
-                if (pThreadInfo->conn == NULL) {
-                    destroySockFd(pThreadInfo->sockfd);
-                    exeError = true;
-                    break;
-                }
+           // create conn
+           if (initQueryConn(pThreadInfo, iface)) {
+               exeError = true;
+               break;
            }
 
            pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
@@ -497,18 +534,8 @@ static int specQuery(uint16_t iface, char* dbName) {
         // wait threads execute finished one by one
         for (int j = 0; j < threadCnt ; j++) {
            pthread_join(pids[j], NULL);
-           threadInfo *pThreadInfo = infos + j;
-           if (iface == REST_IFACE) {
-#ifdef WINDOWS
-                closesocket(pThreadInfo->sockfd);
-                WSACleanup();
-#else
-                close(pThreadInfo->sockfd);
-#endif
-           } else {
-                closeBenchConn(pThreadInfo->conn);
-                pThreadInfo->conn = NULL;
-           }
+           qThreadInfo *pThreadInfo = infos + j;
+           closeQueryConn(pThreadInfo, iface);
 
            // need exit in loop
            if (g_fail || g_arguments->terminate) {
@@ -538,7 +565,7 @@ static int specQuery(uint16_t iface, char* dbName) {
         uint64_t totalQueryTimes = query_times * nConcurrent;
         double   avg_delay = 0.0;
         for (int j = 0; j < nConcurrent; j++) {
-           threadInfo *pThreadInfo = infos + j;
+           qThreadInfo *pThreadInfo = infos + j;
            avg_delay += pThreadInfo->avg_delay;
            for (uint64_t k = 0; k < g_queryInfo.specifiedQueryInfo.queryTimes; k++) {
                 sql->delay_list[j * query_times + k] = pThreadInfo->query_delay_list[k];
@@ -591,13 +618,16 @@ static int specQuery(uint16_t iface, char* dbName) {
 
 // spec query mix
 static int specQueryMix(uint16_t iface, char* dbName) {
-    int code = -1;
-    int thread = g_queryInfo.specifiedQueryInfo.concurrent;
-    pthread_t * pids = benchCalloc(thread, sizeof(pthread_t), true);
-    queryThreadInfo *infos = benchCalloc(thread, sizeof(queryThreadInfo), true);
+    // init
+    int code               = -1;
+    int thread             = g_queryInfo.specifiedQueryInfo.concurrent;
+    pthread_t * pids       = benchCalloc(thread, sizeof(pthread_t), true);
+    qThreadInfo *infos = benchCalloc(thread, sizeof(qThreadInfo), true);
+
+    // concurent calc
     int total_sql_num = g_queryInfo.specifiedQueryInfo.sqls->size;
-    int start_sql = 0;
-    int a = total_sql_num / thread;
+    int start_sql     = 0;
+    int a             = total_sql_num / thread;
     if (a < 1) {
         thread = total_sql_num;
         a = 1;
@@ -606,27 +636,24 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     if (thread != 0) {
         b = total_sql_num % thread;
     }
+
+    //
+    // running
+    //
     for (int i = 0; i < thread; ++i) {
-        queryThreadInfo *pQueryThreadInfo = infos + i;
-        pQueryThreadInfo->threadId = i;
-        pQueryThreadInfo->start_sql = start_sql;
-        pQueryThreadInfo->end_sql = i < b ? start_sql + a : start_sql + a - 1;
-        start_sql = pQueryThreadInfo->end_sql + 1;
-        pQueryThreadInfo->total_delay = 0;
-        pQueryThreadInfo->query_delay_list = benchArrayInit(1, sizeof(int64_t));
-        if (iface == REST_IFACE) {
-            int sockfd = createSockFd();
-            if (sockfd < 0) {
-                goto OVER;
-            }
-            pQueryThreadInfo->sockfd = sockfd;
-        } else {
-            pQueryThreadInfo->conn = initBenchConn();
-            if (pQueryThreadInfo->conn == NULL) {
-                goto OVER;
-            }
+        qThreadInfo *pThreadInfo = infos + i;
+        pThreadInfo->threadId = i;
+        pThreadInfo->start_sql = start_sql;
+        pThreadInfo->end_sql = i < b ? start_sql + a : start_sql + a - 1;
+        start_sql = pThreadInfo->end_sql + 1;
+        pThreadInfo->total_delay = 0;
+        pThreadInfo->query_delay_list = benchArrayInit(1, sizeof(int64_t));
+
+        // create conn
+        if (initQueryConn(pThreadInfo, iface)){
+            goto OVER;
         }
-        pthread_create(pids + i, NULL, specQueryMixThread, pQueryThreadInfo);
+        pthread_create(pids + i, NULL, specQueryMixThread, pThreadInfo);
     }
 
     int64_t start = toolsGetTimestampUs();
@@ -639,23 +666,15 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t total_delay = 0;
     for (int i = 0; i < thread; ++i) {
-        queryThreadInfo * pThreadInfo = infos + i;
+        qThreadInfo * pThreadInfo = infos + i;
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
                 pThreadInfo->query_delay_list->size, true);
         total_delay += pThreadInfo->total_delay;
         tmfree(pThreadInfo->query_delay_list);
         pThreadInfo->query_delay_list = NULL;
 
-        if (iface == REST_IFACE) {
-#ifdef  WINDOWS
-            closesocket(pThreadInfo->sockfd);
-            WSACleanup();
-#else
-            close(pThreadInfo->sockfd);
-#endif
-        } else {
-            closeBenchConn(pThreadInfo->conn);
-        }
+        // close conn
+        closeQueryConn(pThreadInfo, iface);
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
     if (delay_list->size) {

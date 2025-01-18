@@ -863,7 +863,11 @@ typedef struct SQueryThreadInfo_S {
     int   sockfd;
     SBenchConn* conn;
     int64_t total_delay;
-} queryThreadInfo;
+
+    // error rate
+    uint64_t nSucc;
+    uint64_t nFail;
+} qThreadInfo;
 
 typedef struct STSmaThreadInfo_S {
     char* dbName;

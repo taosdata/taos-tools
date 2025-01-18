@@ -240,10 +240,14 @@ static void appendResultBufToFile(char *resultBuf, char * filePath) {
     tmfclose(fp);
 }
 
-void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
-    char sourceString[32] = "xxxx";
-    char *pos = strstr(inSql, sourceString);
-    if (0 == pos) return;
+int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
+    // child table mark
+    char mark[32] = "xxxx";
+    char *pos = strstr(inSql, mark);
+    if (0 == pos) {
+        errorPrint("sql format error, super table query not found child table replace mark string '%s'", mark);
+        return -1;
+    }        
 
     char subTblName[TSDB_TABLE_NAME_LEN];
     snprintf(subTblName, TSDB_TABLE_NAME_LEN,
@@ -253,6 +257,7 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     tstrncpy(outSql, inSql, pos - inSql + 1);
     snprintf(outSql + strlen(outSql), TSDB_MAX_ALLOWED_SQL_LEN -1,
              "%s%s", subTblName, pos + strlen(sourceString));
+    return 0;         
 }
 
 int64_t toolsGetTimestamp(int32_t precision) {
