@@ -61,10 +61,11 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     return ret;
 }
 
-static void *mixedQuery(void *sarg) {
+// spec query mixed thread
+static void *specQueryMixThread(void *sarg) {
     queryThreadInfo *pThreadInfo = (queryThreadInfo*)sarg;
 #ifdef LINUX
-    prctl(PR_SET_NAME, "mixedQuery");
+    prctl(PR_SET_NAME, "specQueryMixThread");
 #endif
     // use db
     if (g_queryInfo.dbName) {
@@ -156,10 +157,11 @@ static void *mixedQuery(void *sarg) {
     return NULL;
 }
 
-static void *specifiedTableQuery(void *sarg) {
+// spec query thread
+static void *specQueryThread(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
 #ifdef LINUX
-    prctl(PR_SET_NAME, "specTableQuery");
+    prctl(PR_SET_NAME, "specQueryThread");
 #endif
     uint64_t st = 0;
     uint64_t et = 0;
@@ -260,11 +262,12 @@ static void *specifiedTableQuery(void *sarg) {
     return NULL;
 }
 
-static void *superTableQuery(void *sarg) {
+// super table query thread
+static void *stbQueryThread(void *sarg) {
     char *sqlstr = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     threadInfo *pThreadInfo = (threadInfo *)sarg;
 #ifdef LINUX
-    prctl(PR_SET_NAME, "superTableQuery");
+    prctl(PR_SET_NAME, "stbQueryThread");
 #endif
 
     uint64_t st = 0;
@@ -320,7 +323,8 @@ static void *superTableQuery(void *sarg) {
     return NULL;
 }
 
-static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
+// super table query
+static int stbQuery(uint16_t iface, char* dbName) {
     int ret = -1;
     pthread_t * pidsOfSub = NULL;
     threadInfo *infosOfSub = NULL;
@@ -368,7 +372,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                     goto OVER;
                 }
             }
-            pthread_create(pidsOfSub + i, NULL, superTableQuery, pThreadInfo);
+            pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
         }
         g_queryInfo.superQueryInfo.threadCnt = threads;
 
@@ -424,8 +428,8 @@ void freeSpecialQueryInfo() {
     g_queryInfo.specifiedQueryInfo.sqls = NULL;
 }
 
-
-static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
+// spec query thread
+static int specQuery(uint16_t iface, char* dbName) {
     pthread_t * pids = NULL;
     threadInfo *infos = NULL;
     //==== create sub threads for query from specify table
@@ -479,7 +483,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 }
            }
 
-           pthread_create(pids + j, NULL, specifiedTableQuery, pThreadInfo);
+           pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
            threadCnt++;
         }
 
@@ -585,7 +589,8 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     return 0;
 }
 
-static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
+// spec query mix
+static int specQueryMix(uint16_t iface, char* dbName) {
     int code = -1;
     int thread = g_queryInfo.specifiedQueryInfo.concurrent;
     pthread_t * pids = benchCalloc(thread, sizeof(pthread_t), true);
@@ -621,7 +626,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
                 goto OVER;
             }
         }
-        pthread_create(pids + i, NULL, mixedQuery, pQueryThreadInfo);
+        pthread_create(pids + i, NULL, specQueryMixThread, pQueryThreadInfo);
     }
 
     int64_t start = toolsGetTimestampUs();
@@ -903,20 +908,20 @@ int queryTestProcess() {
     uint64_t startTs = toolsGetTimestampMs();
     if (g_queryInfo.specifiedQueryInfo.mixed_query) {
         // mixed
-        if (multi_thread_specified_mixed_query(g_queryInfo.iface,
+        if (specQueryMix(g_queryInfo.iface,
                     g_queryInfo.dbName)) {
             return -1;
         }
     } else {
         // no mixied
-        if (multi_thread_specified_table_query(g_queryInfo.iface,
+        if (specQuery(g_queryInfo.iface,
                     g_queryInfo.dbName)) {
             return -1;
         }
     }
 
     // super table
-    if (multi_thread_super_table_query(g_queryInfo.iface,
+    if (stbQuery(g_queryInfo.iface,
                 g_queryInfo.dbName)) {
         return -1;
     }
