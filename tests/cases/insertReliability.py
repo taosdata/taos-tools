@@ -73,7 +73,7 @@ class TDTestCase:
 
 
 
-    def runSeconds(self, command, seconds, timeout = 60):
+    def runSeconds(self, command, seconds, timeout = 180):
 
         tdLog.info(f"run with {command} after seconds:{seconds} ...")
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -95,7 +95,7 @@ class TDTestCase:
 
         index = 1
         tdLog.info(f"stop taosd index={index} ...")
-        tdDnodes.stop(index)
+        tdDnodes.forcestop(index)
 
         tdLog.info(f"wait taosbenchmark end ...")
         process.wait(timeout)

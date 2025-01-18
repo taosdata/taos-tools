@@ -508,6 +508,23 @@ class TDDnode:
             tdLog.debug("dnode:%d is stopped by kill -INT" % (self.index))
 
     def forcestop(self):
+        taosadapterToBeKilled = "taosadapter"
+
+        taosadapterPsCmd = (
+            "ps -ef|grep -w %s| grep -v grep | awk '{print $2}'" % taosadapterToBeKilled
+        )
+        taosadapterProcessID = subprocess.check_output(
+            taosadapterPsCmd, shell=True
+        ).decode("utf-8")
+
+        while taosadapterProcessID:
+            taosadapterKillCmd = "kill -KILL %s > /dev/null 2>&1" % taosadapterProcessID
+            os.system(taosadapterKillCmd)
+            time.sleep(1)
+            taosadapterProcessID = subprocess.check_output(
+                taosadapterPsCmd, shell=True
+            ).decode("utf-8")
+
         if self.valgrind == 0:
             toBeKilled = "taosd"
         else:
