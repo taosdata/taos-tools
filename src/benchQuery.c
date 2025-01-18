@@ -789,7 +789,7 @@ int fetchChildTableName(char *dbName, char *stbName) {
     } else {
         snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
                     "SELECT COUNT(TBNAME) FROM %s.%s",
-                dbName, superQueryInfo.stbName);
+                dbName, stbName);
     }
     TAOS_RES *res = taos_query(conn->taos, cmd);
     int32_t   code = taos_errno(res);
@@ -898,6 +898,10 @@ int queryTestProcess() {
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
             (g_queryInfo.superQueryInfo.threadCnt > 0)) {
         int32_t ret = fetchChildTableName(g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+        if (ret != 0) {
+            errorPrint("fetchChildTableName dbName=%s stb=%s failed.", g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+            return -1;
+        }
     }
 
     // 
