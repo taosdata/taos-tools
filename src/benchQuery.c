@@ -147,15 +147,18 @@ static void *specQueryMixThread(void *sarg) {
             et = toolsGetTimestampUs();
 
             // delay
-            int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
-            *delay = et - st;
-            debugPrint("%s() LN%d, delay: %"PRId64"\n",
-                       __func__, __LINE__, *delay);
+            if (ret == 0) {
+                int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
+                *delay = et - st;
+                debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, *delay);
 
-            pThreadInfo->total_delay += (et - st);
-            if(benchArrayPush(pThreadInfo->query_delay_list, delay) == NULL){
-                tmfree(delay);
+                pThreadInfo->total_delay += (et - st);
+                if(benchArrayPush(pThreadInfo->query_delay_list, delay) == NULL){
+                    tmfree(delay);
+                }
             }
+
+            // show
             int64_t currentPrintTs = toolsGetTimestampMs();
             if (currentPrintTs - lastPrintTs > 10 * 1000) {
                 infoPrint("thread[%d] has currently complete query %d times\n",
@@ -235,8 +238,8 @@ static void *specQueryThread(void *sarg) {
         debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, delay);
 
         if (ret == 0) {
+            // only succ add delay list
             pThreadInfo->query_delay_list[index] = delay;
-            pThreadInfo->totalQueried++;
         }
         index++;
         totalDelay += delay;
@@ -327,15 +330,17 @@ static void *stbQueryThread(void *sarg) {
                     return NULL
                 }
 
-                int64_t currentPrintTime = toolsGetTimestampMs();
-                int64_t endTs = toolsGetTimestampMs();
+                int64_t currentPrintTime = toolsGetTimestampMs();                
                 if (currentPrintTime - lastPrintTime > 30 * 1000) {
+                    int64_t endTs = toolsGetTimestampMs();
+                    uint64_t totalQueried = pThreadInfo->nSucc;
+                    if(g_arguments->continueIfFail == YES_IF_FAILED) {
+                        totalQueried += pThreadInfo->nFail;
+                    }
                     infoPrint(
-                        "thread[%d] has currently completed queries: %" PRIu64
-                        ", QPS: %10.3f\n",
-                        pThreadInfo->threadID, pThreadInfo->totalQueried,
-                        (double)(pThreadInfo->totalQueried /
-                                 ((endTs - startTs) / 1000.0)));
+                        "thread[%d] has currently completed queries: %" PRIu64 ", QPS: %10.3f\n",
+                        pThreadInfo->threadID, totalQueried,
+                        (double)(totalQueried / ((endTs - startTs) / 1000.0)));
                     lastPrintTime = currentPrintTime;
                 }
             }
@@ -389,61 +394,68 @@ static int stbQuery(uint16_t iface, char* dbName) {
     int ret = -1;
     pthread_t * pidsOfSub   = NULL;
     qThreadInfo *infosOfSub = NULL;
-    //==== create sub threads for query from all sub table of the super table
-    if ((g_queryInfo.superQueryInfo.sqlCount > 0)
-            && (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        pidsOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt
-                                *sizeof(pthread_t),
-                                false);
-        infosOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt
-                                 *sizeof(qThreadInfo), false);
+    g_queryInfo.superQueryInfo.totalQueried = 0;
 
-        int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
-        int     threads = g_queryInfo.superQueryInfo.threadCnt;
-
-        int64_t a = ntables / threads;
-        if (a < 1) {
-            threads = (int)ntables;
-            a = 1;
-        }
-
-        int64_t b = 0;
-        if (threads != 0) {
-            b = ntables % threads;
-        }
-
-        uint64_t tableFrom = 0;
-        for (int i = 0; i < threads; i++) {
-            qThreadInfo *pThreadInfo = infosOfSub + i;
-            pThreadInfo->threadID = i;
-            pThreadInfo->start_table_from = tableFrom;
-            pThreadInfo->ntables = i < b ? a + 1 : a;
-            pThreadInfo->end_table_to =
-                    i < b ? tableFrom + a : tableFrom + a - 1;
-            tableFrom = pThreadInfo->end_table_to + 1;
-            // create conn
-            if (initQueryConn(pThreadInfo, iface)){
-                goto OVER;
-            }
-            pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
-        }
-        g_queryInfo.superQueryInfo.threadCnt = threads;
-
-        for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
-            if (!g_arguments->terminate)
-                pthread_join(pidsOfSub[i], NULL);
-            qThreadInfo *pThreadInfo = infosOfSub + i;
-            // close conn
-            closeQueryConn(pThreadInfo, iface);
-            if (g_fail) {
-                goto OVER;
-            }
-        }
-        for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; ++i) {
-            g_queryInfo.superQueryInfo.totalQueried += infosOfSub[i].totalQueried;
-        }
-    } else {
+    // check
+    if ((g_queryInfo.superQueryInfo.sqlCount == 0)
+        || (g_queryInfo.superQueryInfo.threadCnt == 0)) {
         return 0;
+    }
+
+    // malloc 
+    pidsOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt
+                            *sizeof(pthread_t),
+                            false);
+    infosOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt
+                                *sizeof(qThreadInfo), false);
+
+    int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
+    int nConcurrent = g_queryInfo.superQueryInfo.threadCnt;
+
+    int64_t a = ntables / nConcurrent;
+    if (a < 1) {
+        nConcurrent = (int)ntables;
+        a = 1;
+    }
+
+    int64_t b = 0;
+    if (nConcurrent != 0) {
+        b = ntables % nConcurrent;
+    }
+
+    uint64_t tableFrom = 0;
+    int threadCnt = 0;
+    for (int i = 0; i < nConcurrent; i++) {
+        qThreadInfo *pThreadInfo = infosOfSub + i;
+        pThreadInfo->threadID = i;
+        pThreadInfo->start_table_from = tableFrom;
+        pThreadInfo->ntables = i < b ? a + 1 : a;
+        pThreadInfo->end_table_to =
+                i < b ? tableFrom + a : tableFrom + a - 1;
+        tableFrom = pThreadInfo->end_table_to + 1;
+        // create conn
+        if (initQueryConn(pThreadInfo, iface)){
+            g_fail = true;
+            break;
+        }
+        pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
+        threadCnt ++;
+    }
+    // real thread count
+    g_queryInfo.superQueryInfo.threadCnt = threadCnt;
+
+    for (int i = 0; i < threadCnt; i++) {
+        pthread_join(pidsOfSub[i], NULL);
+        qThreadInfo *pThreadInfo = infosOfSub + i;
+        // add succ
+        g_queryInfo.superQueryInfo.totalQueried += pThreadInfo->nSucc;
+        if (g_arguments->continueIfFail == YES_IF_FAILED) {
+            // "yes" need add fail cnt
+            g_queryInfo.superQueryInfo.totalQueried += pThreadInfo->nFail;
+        }
+
+        // close conn
+        closeQueryConn(pThreadInfo, iface);
     }
 
     ret = 0;
@@ -484,6 +496,7 @@ static int specQuery(uint16_t iface, char* dbName) {
     //==== create sub threads for query from specify table
     int      nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
     uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
+    g_queryInfo.specifiedQueryInfo.totalQueried = 0;
 
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
@@ -571,6 +584,12 @@ static int specQuery(uint16_t iface, char* dbName) {
                 sql->delay_list[j * query_times + k] = pThreadInfo->query_delay_list[k];
            }
 
+           // total queries
+           g_queryInfo.specifiedQueryInfo.totalQueried += pThreadInfo->nSucc;
+           if (g_arguments->continueIfFail == YES_IF_FAILED) {
+                g_queryInfo.specifiedQueryInfo.totalQueried += pThreadInfo->nFail; 
+           }
+
            // free BArray
            tmfree(pThreadInfo->query_delay_list);
            pThreadInfo->query_delay_list = NULL;
@@ -606,8 +625,6 @@ static int specQuery(uint16_t iface, char* dbName) {
         tmfree(buf);                                   
     }
 
-    g_queryInfo.specifiedQueryInfo.totalQueried =
-        nSqlCount * g_queryInfo.specifiedQueryInfo.queryTimes * nConcurrent;
     tmfree((char *)pids);
     tmfree((char *)infos);
 
@@ -619,9 +636,9 @@ static int specQuery(uint16_t iface, char* dbName) {
 // spec query mix
 static int specQueryMix(uint16_t iface, char* dbName) {
     // init
-    int code               = -1;
-    int thread             = g_queryInfo.specifiedQueryInfo.concurrent;
-    pthread_t * pids       = benchCalloc(thread, sizeof(pthread_t), true);
+    int code           = -1;
+    int thread         = g_queryInfo.specifiedQueryInfo.concurrent;
+    pthread_t * pids   = benchCalloc(thread, sizeof(pthread_t), true);
     qThreadInfo *infos = benchCalloc(thread, sizeof(qThreadInfo), true);
 
     // concurent calc
@@ -642,9 +659,9 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     //
     for (int i = 0; i < thread; ++i) {
         qThreadInfo *pThreadInfo = infos + i;
-        pThreadInfo->threadId = i;
-        pThreadInfo->start_sql = start_sql;
-        pThreadInfo->end_sql = i < b ? start_sql + a : start_sql + a - 1;
+        pThreadInfo->threadId    = i;
+        pThreadInfo->start_sql   = start_sql;
+        pThreadInfo->end_sql     = i < b ? start_sql + a : start_sql + a - 1;
         start_sql = pThreadInfo->end_sql + 1;
         pThreadInfo->total_delay = 0;
         pThreadInfo->query_delay_list = benchArrayInit(1, sizeof(int64_t));
@@ -665,18 +682,35 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     // statistic
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t total_delay = 0;
+    g_queryInfo.specifiedQueryInfo.totalQueried = 0;
+
     for (int i = 0; i < thread; ++i) {
         qThreadInfo * pThreadInfo = infos + i;
+        
+        // total queries
+        g_queryInfo.specifiedQueryInfo.totalQueried += pThreadInfo->nSucc;
+        if(g_arguments->continueIfFail == YES_IF_FAILED) {
+            // yes need add failed count
+            g_queryInfo.specifiedQueryInfo.totalQueried += pThreadInfo->nFail;
+        }
+        
+        // append delay
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
                 pThreadInfo->query_delay_list->size, true);
         total_delay += pThreadInfo->total_delay;
+
+        // free delay
         tmfree(pThreadInfo->query_delay_list);
         pThreadInfo->query_delay_list = NULL;
 
         // close conn
         closeQueryConn(pThreadInfo, iface);
     }
+
+    // sort
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
+
+    // show delay min max
     if (delay_list->size) {
         infoPrint(
                 "spend %.6fs using "
@@ -705,8 +739,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     }
     benchArrayDestroy(delay_list);
     code = 0;
-    g_queryInfo.specifiedQueryInfo.totalQueried = 
-        g_queryInfo.specifiedQueryInfo.sqls->size * g_queryInfo.specifiedQueryInfo.queryTimes;
+
 
 OVER:
     tmfree(pids);
@@ -877,15 +910,24 @@ void totalQuery(int64_t spends) {
     // total QPS
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
         + g_queryInfo.superQueryInfo.totalQueried;
-    infoPrint(
-            "Spend %.4f second completed total queries: %" PRIu64
-            ", the QPS of all threads: %10.3f\n\n",
-            tInS, totalQueried, (double)totalQueried / tInS);
-    infoPrintToFile(
-            "Spend %.4f second completed total queries: %" PRIu64
-            ", the QPS of all threads: %10.3f\n\n",
-            tInS, totalQueried, (double)totalQueried / tInS);
 
+    // error rate
+    char errRate[128] = "";
+    if(g_arguments->continueIfFail == YES_IF_FAILED) {
+        uint16_t totalFail = g_queryInfo.specifiedQueryInfo.nFail + g_queryInfo.superQueryInfo.nFail;
+        if (totalQueried > 0) {
+            snprintf(errRate, " Error rate:%.3f%%", ((float)totalFail * 100)/totalQueried);
+        }
+    }
+
+    // show
+    char buf[512] = "";
+    snprintf(buf, sizeof(buf),
+                "Spend %.4f second completed total queries: %" PRIu64
+                ", the QPS of all threads: %10.3f%s\n\n",
+                tInS, totalQueried, (double)totalQueried / tInS, errRate);
+    infoPrint("%s", buf);
+    infoPrintToFile("%s", buf);
 }
 
 int queryTestProcess() {
