@@ -1834,12 +1834,15 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             break;
         } else {
             // failed to try
-            if (loop == 0) {
+            if (--loop == 0) {
                 // failed finally
-                errorPrint("finally faild execute submitStmt2() after retry %d \n", i);
+                char tip[64] = "";
+                if (i > 0) {
+                    snprintf(tip, sizeof(tip), " after retry %d", i);
+                }
+                errorPrint("finally faild execute submitStmt2()%s\n", tip);
                 return -1;
             }
-            loop --;
 
             // wait a memont for trying
             toolsMsleep(stbInfo->trying_interval);

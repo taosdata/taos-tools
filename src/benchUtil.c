@@ -541,13 +541,20 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
     do {
         bytes = recv(sockfd, responseBuf + received,
                 resp_len - received, 0);
+        if (bytes <= 0) {
+            errorPrint("%s", "reading no response from socket\n");
+            goto free_of_postImpl;
+        }
         responseBuf[resp_len] = 0;
-        debugPrint("response buffer: %s\n", responseBuf);
+        debugPrint("response buffer: %s bytes=%d\n", responseBuf, bytes);
         if (NULL != strstr(responseBuf, resEncodingChunk)) {
             chunked = true;
         }
         int64_t index = strlen(responseBuf) - 1;
         while (responseBuf[index] == '\n' || responseBuf[index] == '\r') {
+            if (index == 0) {
+                break;
+            }
             index--;
         }
         debugPrint("index: %" PRId64 "\n", index);
@@ -558,11 +565,6 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         if (!chunked && responseBuf[index] == '}') {
             code = 0;
             break;
-        }
-
-        if (bytes <= 0) {
-            errorPrint("%s", "reading no response from socket\n");
-            goto free_of_postImpl;
         }
 
         received += bytes;
