@@ -13,8 +13,6 @@
 #include <bench.h>
 #include "benchLog.h"
 
-extern int g_majorVersionOfClient;
-
 // query and get result  other true is no test sql
 int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
     int ret = 0;
