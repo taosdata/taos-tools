@@ -1031,4 +1031,18 @@ bool isRest(int32_t iface);
 
 // get group index about dbname.tbname
 int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt);
+
+// ------------  benchQuery util -------------
+void freeSpecialQueryInfo();
+// init conn
+int32_t initQueryConn(qThreadInfo * pThreadInfo, int iface);
+// close conn
+void closeQueryConn(qThreadInfo * pThreadInfo, int iface);
+
+void *queryKiller(void *arg);
+// kill show
+int killSlowQuery();
+// fetch super table child name from server
+int fetchChildTableName(char *dbName, char *stbName);
+
 #endif   // INC_BENCH_H_
