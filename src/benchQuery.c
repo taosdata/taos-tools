@@ -233,7 +233,7 @@ static void *specQueryThread(void *sarg) {
     while (index < queryTimes) {
         // use cancel
         if(g_arguments->terminate) {
-            infoPrint("%s\n", "user cancel , so exit testing.");
+            infoPrint("thread[%d] user cancel , so exit testing.\n", pThreadInfo->threadID);
             break;
         }
 
