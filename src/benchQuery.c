@@ -560,7 +560,6 @@ static int specQuery(uint16_t iface, char* dbName) {
     pids  = benchCalloc(1, nConcurrent * sizeof(pthread_t),  false);
     infos = benchCalloc(1, nConcurrent * sizeof(qThreadInfo), false);
 
-    bool exeError = false;
     for (uint64_t i = 0; i < nSqlCount; i++) {
         if( g_arguments->terminate ) {
             break;
@@ -623,7 +622,7 @@ static int specQuery(uint16_t iface, char* dbName) {
         // create 
         if (needExit) {
             errorPrint("failed to create thread. expect nConcurrent=%d real threadCnt=%d,  exit testing.\n", nConcurrent, threadCnt);
-            goto OVER:
+            goto OVER;
         }
         ret = 0;
 
@@ -642,7 +641,7 @@ static int specQuery(uint16_t iface, char* dbName) {
            for (uint64_t k = 0; k < pThreadInfo->query_delay_list->size; k++) {
                 int64_t * delay = benchArrayGet(pThreadInfo->query_delay_list, k);
                 sql->delay_list[n++] = *delay;
-                delays += delay;
+                delays += *delay;
            }
 
            // total queries
@@ -708,7 +707,7 @@ OVER:
 static int specQueryMix(uint16_t iface, char* dbName) {
     // init
     int ret            = -1;
-    int nConcurrent    = g_queryInfo.specifiedQueryInfo.nConcurrent;
+    int nConcurrent    = g_queryInfo.specifiedQueryInfo.concurrent;
     pthread_t * pids   = benchCalloc(nConcurrent, sizeof(pthread_t), true);
     qThreadInfo *infos = benchCalloc(nConcurrent, sizeof(qThreadInfo), true);
 
@@ -761,7 +760,8 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < threadCnt; ++i) {
         pthread_join(pids[i], NULL);
-        closeQueryConn();
+        qThreadInfo *pThreadInfo = infos + i;
+        closeQueryConn(pThreadInfo, iface);
 
         // total queries
         g_queryInfo.specifiedQueryInfo.totalQueried += pThreadInfo->nSucc;
@@ -782,7 +782,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     // create 
     if (needExit) {
         errorPrint("failed to create thread. expect nConcurrent=%d real threadCnt=%d,  exit testing.\n", nConcurrent, threadCnt);
-        goto OVER:
+        goto OVER;
     }
 
     // statistic
