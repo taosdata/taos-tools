@@ -648,6 +648,8 @@ typedef struct SpecifiedQueryInfo_S {
     TAOS_RES *res[MAX_QUERY_SQL_COUNT];
     uint64_t  totalQueried;
     bool      mixed_query;
+    // error rate
+    uint64_t  totalFail;
 } SpecifiedQueryInfo;
 
 typedef struct SuperQueryInfo_S {
@@ -669,6 +671,8 @@ typedef struct SuperQueryInfo_S {
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
     char **   childTblName;
     uint64_t  totalQueried;
+    // error rate
+    uint64_t  totalFail;
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
@@ -856,18 +860,24 @@ typedef struct SThreadInfo_S {
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
-    int start_sql;
-    int end_sql;
-    int threadID;
-    BArray*  query_delay_list;
-    int   sockfd;
     SBenchConn* conn;
-    int64_t total_delay;
+    int32_t   start_sql;
+    int32_t   end_sql;
+    int32_t   threadID;
+    BArray*   query_delay_list;
+    int32_t   sockfd;
+    int64_t   total_delay;
+
+    char      filePath[MAX_PATH_LEN];
+    uint64_t  start_table_from;
+    uint64_t  end_table_to;
+    double    avg_delay;
+    uint64_t  ntables;
+    uint64_t  *query_delay_list;
 
     // error rate
-    uint64_t nSucc;
-    uint64_t nFail;
-    char     filePath[MAX_PATH_LEN];
+    uint64_t  nSucc;
+    uint64_t  nFail;
 } qThreadInfo;
 
 typedef struct STSmaThreadInfo_S {
