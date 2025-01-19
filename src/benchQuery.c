@@ -88,10 +88,11 @@ void autoSleep(uint64_t st, uint64_t et) {
 int32_t resetQueryCache(qThreadInfo* pThreadInfo) {    
     // execute sql 
     if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE", true)) {
-        errorPrint("%s() LN%d, reset query cache failed\n",
-                    __func__, __LINE__);
-        break;
+        errorPrint("%s() LN%d, reset query cache failed\n", __func__, __LINE__);
+        return -1;
     }
+    // succ
+    return 0;
 }
 
 
@@ -188,8 +189,6 @@ static void *specQueryMixThread(void *sarg) {
         }
     }
 
-    // delay sort
-    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -267,8 +266,6 @@ static void *specQueryThread(void *sarg) {
         lastPrintTime = showRealQPS(pThreadInfo, lastPrintTime, startTs);
     }
 
-    // delay sort
-    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -344,7 +341,7 @@ static void *stbQueryThread(void *sarg) {
                     errorPrint("failed call stb selectAndGetResult, i=%d j=%d\n", i, j);
                     g_fail = true;
                     tmfree(sqlstr);
-                    return NULL
+                    return NULL;
                 }
                 uint64_t delay = toolsGetTimestampUs() - s;
                 debugPrint("%s() LN%d, delay: %"PRIu64"\n", __func__, __LINE__, delay);
@@ -364,8 +361,6 @@ static void *stbQueryThread(void *sarg) {
     }
     tmfree(sqlstr);
 
-    // delay sort
-    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -375,7 +370,7 @@ static void *stbQueryThread(void *sarg) {
 
 void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
     // valid check
-    if(threadInfo == NULL || threadCnt == 0) {
+    if (infos == NULL || threadCnt == 0) {
         return ;
     }
     
@@ -484,9 +479,9 @@ static int stbQuery(uint16_t iface, char* dbName) {
         if (initQueryConn(pThreadInfo, iface)){
             break;
         }
-        int ret = pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
-        if (ret != 0) {
-            errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+        int code = pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
+        if (code != 0) {
+            errorPrint("failed stbQueryThread create. error code =%d \n", code);
             break;
         }
         threadCnt ++;
@@ -497,7 +492,7 @@ static int stbQuery(uint16_t iface, char* dbName) {
     if (threadCnt != nConcurrent  ) {
         needExit = true;
         g_arguments->terminate = true;
-        goto OVER:
+        goto OVER;
     }
 
     // real thread count
@@ -521,7 +516,7 @@ static int stbQuery(uint16_t iface, char* dbName) {
     int64_t end = toolsGetTimestampUs();
 
     if (needExit) {
-        goto OVER:
+        goto OVER;
     }
 
     // total show
@@ -547,7 +542,7 @@ static int specQuery(uint16_t iface, char* dbName) {
     int ret = -1;
     pthread_t    *pids = NULL;
     qThreadInfo *infos = NULL;
-    int    nConcurrent = g_queryInfo.specifiedQueryInfo.nConcurrent;
+    int    nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
     uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
     g_queryInfo.specifiedQueryInfo.totalQueried = 0;
     g_queryInfo.specifiedQueryInfo.totalFail    = 0;
@@ -590,9 +585,9 @@ static int specQuery(uint16_t iface, char* dbName) {
                break;
            }
 
-           int ret = pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
-           if (ret != 0) {
-               errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+           int code = pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
+           if (code != 0) {
+               errorPrint("failed specQueryThread create. error code =%d \n", code);
                break;
            }
            threadCnt++;
@@ -712,7 +707,7 @@ OVER:
 //
 static int specQueryMix(uint16_t iface, char* dbName) {
     // init
-    int code           = -1;
+    int ret            = -1;
     int nConcurrent    = g_queryInfo.specifiedQueryInfo.nConcurrent;
     pthread_t * pids   = benchCalloc(nConcurrent, sizeof(pthread_t), true);
     qThreadInfo *infos = benchCalloc(nConcurrent, sizeof(qThreadInfo), true);
@@ -747,9 +742,9 @@ static int specQueryMix(uint16_t iface, char* dbName) {
             break;
         }
         // main run
-        int ret = pthread_create(pids + i, NULL, specQueryMixThread, pThreadInfo);
-        if (ret != 0) {
-            errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+        int code = pthread_create(pids + i, NULL, specQueryMixThread, pThreadInfo);
+        if (code != 0) {
+            errorPrint("failed specQueryMixThread create. error code =%d \n", code);
             break;
         }
         
@@ -792,7 +787,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
 
     // statistic
     totalChildQuery(infos, threadCnt, end - start);
-    code = 0;
+    ret = 0;
 
 OVER:
     tmfree(pids);
@@ -801,7 +796,7 @@ OVER:
     // free sqls
     freeSpecialQueryInfo();
 
-    return code;
+    return ret;
 }
 
 // total query for end 
