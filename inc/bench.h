@@ -873,7 +873,7 @@ typedef struct SQueryThreadInfo_S {
     uint64_t  end_table_to;
     double    avg_delay;
     uint64_t  ntables;
-    uint64_t  *query_delay_list;
+    uint64_t  querySeq;
 
     // error rate
     uint64_t  nSucc;
@@ -914,7 +914,7 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encodeAuthBase64();
-void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
+int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  convertDatatypeToString(int type);
@@ -942,7 +942,8 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void*   benchCalloc(size_t nmemb, size_t size, bool record);
 BArray* benchArrayInit(size_t size, size_t elemSize);
-void* benchArrayPush(BArray* pArray, void* pData);
+void* benchArrayPush(BArray* pArray, void* pData); // free pData for auto
+void* benchArrayPushNoFree(BArray* pArray, void* pData); // not free pData
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);

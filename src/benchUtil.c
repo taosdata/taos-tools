@@ -1107,7 +1107,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
 }
 
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free) {
-    if (pData == NULL) {
+    if (pData == NULL || elems <=0) {
         return NULL;
     }
 
@@ -1127,6 +1127,11 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free) 
 FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
     return benchArrayAddBatch(pArray, pData, 1, true);
 }
+
+FORCE_INLINE void* benchArrayPushNoFree(BArray* pArray, void* pData) {
+    return benchArrayAddBatch(pArray, pData, 1, false);
+}
+
 
 void* benchArrayDestroy(BArray* pArray) {
     if (pArray) {

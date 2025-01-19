@@ -87,7 +87,7 @@ void autoSleep(uint64_t st, uint64_t et) {
 // reset 
 int32_t resetQueryCache(qThreadInfo* pThreadInfo) {    
     // execute sql 
-    if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE", true) {
+    if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE", true)) {
         errorPrint("%s() LN%d, reset query cache failed\n",
                     __func__, __LINE__);
         break;
@@ -99,6 +99,25 @@ int32_t resetQueryCache(qThreadInfo* pThreadInfo) {
 //
 //  ---------------------------------  second levle funtion for Thread -----------------------------------
 //
+
+// show rela qps
+int64_t showRealQPS(qThreadInfo* pThreadInfo, int64_t lastPrintTime, int64_t startTs) {
+    int64_t now = toolsGetTimestampMs();
+    if (now - lastPrintTime > 30 * 1000) {
+        // real total
+        uint64_t totalQueried = pThreadInfo->nSucc;
+        if(g_arguments->continueIfFail == YES_IF_FAILED) {
+            totalQueried += pThreadInfo->nFail;
+        }
+        infoPrint(
+            "thread[%d] has currently completed queries: %" PRIu64 ", QPS: %10.3f\n",
+            pThreadInfo->threadID, totalQueried,
+            (double)(totalQueried / ((now - startTs) / 1000.0)));
+        return now;
+    } else {
+        return lastPrintTime;
+    }    
+}
 
 // spec query mixed thread
 static void *specQueryMixThread(void *sarg) {
@@ -116,16 +135,19 @@ static void *specQueryMixThread(void *sarg) {
         }
     }
 
-    int64_t lastPrintTs = toolsGetTimestampMs();
-    int64_t st;
-    int64_t et;
+    int64_t st = 0;
+    int64_t et = 0;
+    int64_t startTs = toolsGetTimestampMs();
+    int64_t lastPrintTime = startTs;
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
+    pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(int64_t));
     for (int i = pThreadInfo->start_sql; i <= pThreadInfo->end_sql; ++i) {
         SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
         for (int j = 0; j < queryTimes; ++j) {
-            // check user cancel test
-            if (g_arguments->terminate) {
-                return NULL;
+            // use cancel
+            if(g_arguments->terminate) {
+                infoPrint("%s\n", "user cancel , so exit testing.");
+                break;
             }
 
             // reset cache
@@ -146,6 +168,9 @@ static void *specQueryMixThread(void *sarg) {
             }
             et = toolsGetTimestampUs();
 
+            // sleep
+            autoSleep(st, et);
+
             // delay
             if (ret == 0) {
                 int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
@@ -158,16 +183,13 @@ static void *specQueryMixThread(void *sarg) {
                 }
             }
 
-            // show
-            int64_t currentPrintTs = toolsGetTimestampMs();
-            if (currentPrintTs - lastPrintTs > 10 * 1000) {
-                infoPrint("thread[%d] has currently complete query %d times\n",
-                        pThreadInfo->threadID,
-                        (int)pThreadInfo->query_delay_list->size);
-                lastPrintTs = currentPrintTs;
-            }
+            // real show
+            lastPrintTime = showRealQPS(pThreadInfo, lastPrintTime, startTs);
         }
     }
+
+    // delay sort
+    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -179,9 +201,6 @@ static void *specQueryThread(void *sarg) {
 #endif
     uint64_t st = 0;
     uint64_t et = 0;
-    uint64_t minDelay = UINT64_MAX;
-    uint64_t maxDelay = 0;
-    uint64_t totalDelay = 0;
     int32_t  index = 0;
 
     // use db
@@ -195,13 +214,12 @@ static void *specQueryThread(void *sarg) {
     }
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
-    pThreadInfo->query_delay_list = benchCalloc(queryTimes,
-            sizeof(uint64_t), false);
-    uint64_t  lastPrintTime = toolsGetTimestampMs();
-    uint64_t  startTs = toolsGetTimestampMs();
+    pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(int64_t));
 
-    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
-            pThreadInfo->querySeq);
+    uint64_t  startTs       = toolsGetTimestampMs();
+    uint64_t  lastPrintTime = startTs;
+
+    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
 
     if (sql->result[0] != '\0') {
         snprintf(pThreadInfo->filePath, MAX_PATH_LEN, "%s-%d",
@@ -209,13 +227,11 @@ static void *specQueryThread(void *sarg) {
     }
 
     while (index < queryTimes) {
-        // check cancel
-        if (g_arguments->terminate) {
-            return NULL;
+        // use cancel
+        if(g_arguments->terminate) {
+            infoPrint("%s\n", "user cancel , so exit testing.");
+            break;
         }
-
-        // sleep
-        autoSleep(st, et);
 
         // reset cache
         if (g_queryInfo.reset_query_cache) {
@@ -225,6 +241,7 @@ static void *specQueryThread(void *sarg) {
             }
         }
 
+        // execute sql
         st = toolsGetTimestampUs();
         int ret = selectAndGetResult(pThreadInfo, sql->command, false);
         if (ret) {
@@ -232,46 +249,26 @@ static void *specQueryThread(void *sarg) {
             errorPrint("failed call spec selectAndGetResult, index=%d\n", index);
             break;
         }
-
         et = toolsGetTimestampUs();
-        int64_t delay = et - st;
-        debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, delay);
+
+        // sleep
+        autoSleep(st, et);
+
+        uint64_t delay = et - st;
+        debugPrint("%s() LN%d, delay: %"PRIu64"\n", __func__, __LINE__, delay);
 
         if (ret == 0) {
             // only succ add delay list
-            pThreadInfo->query_delay_list[index] = delay;
+            benchArrayPushNoFree(pThreadInfo->query_delay_list, &delay);
         }
         index++;
-        totalDelay += delay;
-        if (delay > maxDelay) {
-            maxDelay = delay;
-        }
-        if (delay < minDelay) {
-            minDelay = delay;
-        }
 
-        uint64_t currentPrintTime = toolsGetTimestampMs();
-        uint64_t endTs = toolsGetTimestampMs();
-
-        if ((ret == 0) && (currentPrintTime - lastPrintTime > 30 * 1000)) {
-            infoPrint(
-                    "thread[%d] has currently completed queries: %" PRIu64
-                    ", QPS: %10.6f\n",
-                    pThreadInfo->threadID, pThreadInfo->totalQueried,
-                    (double)(pThreadInfo->totalQueried /
-                        ((endTs - startTs) / 1000.0)));
-            lastPrintTime = currentPrintTime;
-        }
-
-        if (-2 == ret) {
-            toolsMsleep(1000);
-            return NULL;
-        }
+        // real show
+        lastPrintTime = showRealQPS(pThreadInfo, lastPrintTime, startTs);
     }
 
-    // delay
-    qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
-    pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
+    // delay sort
+    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -284,16 +281,19 @@ static void *stbQueryThread(void *sarg) {
 #endif
 
     uint64_t st = 0;
-    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000;
+    uint64_t et = 0;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
+    pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(uint64_t));
+    
     uint64_t startTs = toolsGetTimestampMs();
-
-    uint64_t lastPrintTime = toolsGetTimestampMs();
+    uint64_t lastPrintTime = startTs;
     while (queryTimes--) {
-
-        // sleep
-        autoSleep(st, et);
+        // use cancel
+        if(g_arguments->terminate) {
+            infoPrint("%s\n", "user cancel , so exit testing.");
+            break;
+        }
 
         // reset cache
         if (g_queryInfo.reset_query_cache) {
@@ -307,11 +307,24 @@ static void *stbQueryThread(void *sarg) {
         st = toolsGetTimestampMs();
         // for each table
         for (int i = (int)pThreadInfo->start_table_from; i <= pThreadInfo->end_table_to; i++) {
+            // use cancel
+            if(g_arguments->terminate) {
+                infoPrint("%s\n", "user cancel , so exit testing.");
+                break;
+            }
+
             // for each sql
             for (int j = 0; j < g_queryInfo.superQueryInfo.sqlCount; j++) {
                 memset(sqlstr, 0, TSDB_MAX_ALLOWED_SQL_LEN);
+                // use cancel
+                if(g_arguments->terminate) {
+                    infoPrint("%s\n", "user cancel , so exit testing.");
+                    break;
+                }
+
+                
                 // get real child name sql
-                if(replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr, i)) {
+                if (replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr, i)) {
                     // fault
                     tmfree(sqlstr);
                     return NULL;
@@ -322,33 +335,37 @@ static void *stbQueryThread(void *sarg) {
                             g_queryInfo.superQueryInfo.result[j],
                             pThreadInfo->threadID);
                 }
-                if (selectAndGetResult(pThreadInfo, sqlstr, false)) {
+
+                // execute sql
+                uint64_t s = toolsGetTimestampUs();
+                int ret = selectAndGetResult(pThreadInfo, sqlstr, false);
+                if (ret) {
                     // found error
                     errorPrint("failed call stb selectAndGetResult, i=%d j=%d\n", i, j);
                     g_fail = true;
                     tmfree(sqlstr);
                     return NULL
                 }
-
-                int64_t currentPrintTime = toolsGetTimestampMs();                
-                if (currentPrintTime - lastPrintTime > 30 * 1000) {
-                    int64_t endTs = toolsGetTimestampMs();
-                    // real total
-                    uint64_t totalQueried = pThreadInfo->nSucc;
-                    if(g_arguments->continueIfFail == YES_IF_FAILED) {
-                        totalQueried += pThreadInfo->nFail;
-                    }
-                    infoPrint(
-                        "thread[%d] has currently completed queries: %" PRIu64 ", QPS: %10.3f\n",
-                        pThreadInfo->threadID, totalQueried,
-                        (double)(totalQueried / ((endTs - startTs) / 1000.0)));
-                    lastPrintTime = currentPrintTime;
+                uint64_t delay = toolsGetTimestampUs() - s;
+                debugPrint("%s() LN%d, delay: %"PRIu64"\n", __func__, __LINE__, delay);
+                if (ret == 0) {
+                    // only succ add delay list
+                    benchArrayPushNoFree(pThreadInfo->query_delay_list, &delay);
                 }
+
+                // show real QPS
+                lastPrintTime = showRealQPS(pThreadInfo, lastPrintTime, startTs);
             }
         }
         et = toolsGetTimestampMs();
+
+        // sleep
+        autoSleep(st, et);
     }
     tmfree(sqlstr);
+
+    // delay sort
+    qsort(pThreadInfo->query_delay_list, pThreadInfo->query_delay_list->size, sizeof(uint64_t), compare);
     return NULL;
 }
 
@@ -437,12 +454,23 @@ static int stbQuery(uint16_t iface, char* dbName) {
         tableFrom = pThreadInfo->end_table_to + 1;
         // create conn
         if (initQueryConn(pThreadInfo, iface)){
-            g_fail = true;
             break;
         }
-        pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
+        int ret = pthread_create(pidsOfSub + i, NULL, stbQueryThread, pThreadInfo);
+        if (ret != 0) {
+            errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+            break;
+        }
         threadCnt ++;
     }
+
+    bool needExit = false;
+    // if failed, set termainte flag true like ctrl+c exit
+    if (threadCnt != nConcurrent  ) {
+        needExit = true;
+        g_arguments->terminate = true;
+    }
+
     // real thread count
     g_queryInfo.superQueryInfo.threadCnt = threadCnt;
 
@@ -494,10 +522,9 @@ void freeSpecialQueryInfo() {
 
 // spec query thread
 static int specQuery(uint16_t iface, char* dbName) {
-    pthread_t * pids = NULL;
+    pthread_t    *pids = NULL;
     qThreadInfo *infos = NULL;
-    //==== create sub threads for query from specify table
-    int      nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
+    int    nConcurrent = g_queryInfo.specifiedQueryInfo.nConcurrent;
     uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
     g_queryInfo.specifiedQueryInfo.totalQueried = 0;
     g_queryInfo.specifiedQueryInfo.totalFail    = 0;
@@ -507,7 +534,7 @@ static int specQuery(uint16_t iface, char* dbName) {
         if(nSqlCount == 0)
            warnPrint("specified table query sql count is %" PRIu64 ".\n", nSqlCount);
         if(nConcurrent == 0)
-           warnPrint("concurrent is %d , specified_table_query->concurrent is zero. \n", nConcurrent);
+           warnPrint("nConcurrent is %d , specified_table_query->nConcurrent is zero. \n", nConcurrent);
         return 0;
     }
 
@@ -517,6 +544,10 @@ static int specQuery(uint16_t iface, char* dbName) {
 
     bool exeError = false;
     for (uint64_t i = 0; i < nSqlCount; i++) {
+        if( g_arguments->terminate ) {
+            break;
+        }
+
         // reset
         memset(pids,  0, nConcurrent * sizeof(pthread_t));
         memset(infos, 0, nConcurrent * sizeof(qThreadInfo));
@@ -533,17 +564,21 @@ static int specQuery(uint16_t iface, char* dbName) {
 
            // create conn
            if (initQueryConn(pThreadInfo, iface)) {
-               exeError = true;
                break;
            }
 
-           pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
+           int ret = pthread_create(pids + j, NULL, specQueryThread, pThreadInfo);
+           if (ret != 0) {
+               errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+               break;
+           }
            threadCnt++;
         }
 
+        bool needExit = false;
         // if failed, set termainte flag true like ctrl+c exit
-        if (exeError) {
-            errorPrint(" i=%" PRIu64 " create thread occur error, so wait exit ...\n", i);
+        if (threadCnt != nConcurrent  ) {
+            needExit = true;
             g_arguments->terminate = true;
         }
 
@@ -555,9 +590,9 @@ static int specQuery(uint16_t iface, char* dbName) {
            closeQueryConn(pThreadInfo, iface);
 
            // need exit in loop
-           if (g_fail || g_arguments->terminate) {
+           if (needExit) {
                 // free BArray
-                tmfree(pThreadInfo->query_delay_list);
+                benchArrayDestroy(pThreadInfo->query_delay_list);
                 pThreadInfo->query_delay_list = NULL;
            }
         }
@@ -567,8 +602,9 @@ static int specQuery(uint16_t iface, char* dbName) {
             spend = 1;
         }
 
-        // cancel or need exit check
-        if (g_fail || g_arguments->terminate) {
+        // create 
+        if (needExit) {
+            errorPrint("failed to create thread. expect nConcurrent=%d real threadCnt=%d,  exit testing.\n", nConcurrent, threadCnt);
             // free current funciton malloc memory
             tmfree((char *)pids);
             tmfree((char *)infos);
@@ -579,9 +615,9 @@ static int specQuery(uint16_t iface, char* dbName) {
 
         // execute successfully
         uint64_t query_times = g_queryInfo.specifiedQueryInfo.queryTimes;
-        uint64_t totalQueryTimes = query_times * nConcurrent;
+        uint64_t totalQueryTimes = query_times * threadCnt;
         double   avg_delay = 0.0;
-        for (int j = 0; j < nConcurrent; j++) {
+        for (int j = 0; j < threadCnt; j++) {
            qThreadInfo *pThreadInfo = infos + j;
            avg_delay += pThreadInfo->avg_delay;
            for (uint64_t k = 0; k < g_queryInfo.specifiedQueryInfo.queryTimes; k++) {
@@ -599,7 +635,7 @@ static int specQuery(uint16_t iface, char* dbName) {
            tmfree(pThreadInfo->query_delay_list);
            pThreadInfo->query_delay_list = NULL;
         }
-        avg_delay /= nConcurrent;
+        avg_delay /= threadCnt;
         qsort(sql->delay_list, g_queryInfo.specifiedQueryInfo.queryTimes, sizeof(uint64_t), compare);
         int32_t bufLen = strlen(sql->command) + 512;
         char * buf = benchCalloc(bufLen, sizeof(char), false);
@@ -614,7 +650,7 @@ static int specQuery(uint16_t iface, char* dbName) {
                              "p99: %.6fs "
                              "SQL command: %s"
                              "\n",
-                             nConcurrent, query_times,
+                             threadCnt, query_times,
                              i + 1, spend/1E6, totalQueryTimes / (spend/1E6),
                              avg_delay / 1E6,  /* avg */
                              sql->delay_list[0] / 1E6,                   /* min */
@@ -642,47 +678,77 @@ static int specQuery(uint16_t iface, char* dbName) {
 static int specQueryMix(uint16_t iface, char* dbName) {
     // init
     int code           = -1;
-    int thread         = g_queryInfo.specifiedQueryInfo.concurrent;
-    pthread_t * pids   = benchCalloc(thread, sizeof(pthread_t), true);
-    qThreadInfo *infos = benchCalloc(thread, sizeof(qThreadInfo), true);
+    int nConcurrent    = g_queryInfo.specifiedQueryInfo.nConcurrent;
+    pthread_t * pids   = benchCalloc(nConcurrent, sizeof(pthread_t), true);
+    qThreadInfo *infos = benchCalloc(nConcurrent, sizeof(qThreadInfo), true);
 
     // concurent calc
     int total_sql_num = g_queryInfo.specifiedQueryInfo.sqls->size;
     int start_sql     = 0;
-    int a             = total_sql_num / thread;
+    int a             = total_sql_num / nConcurrent;
     if (a < 1) {
-        thread = total_sql_num;
+        nConcurrent = total_sql_num;
         a = 1;
     }
     int b = 0;
-    if (thread != 0) {
-        b = total_sql_num % thread;
+    if (nConcurrent != 0) {
+        b = total_sql_num % nConcurrent;
     }
 
     //
     // running
     //
-    for (int i = 0; i < thread; ++i) {
+    int threadCnt = 0;
+    for (int i = 0; i < nConcurrent; ++i) {
         qThreadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID    = i;
         pThreadInfo->start_sql   = start_sql;
         pThreadInfo->end_sql     = i < b ? start_sql + a : start_sql + a - 1;
         start_sql = pThreadInfo->end_sql + 1;
         pThreadInfo->total_delay = 0;
-        pThreadInfo->query_delay_list = benchArrayInit(1, sizeof(int64_t));
 
         // create conn
         if (initQueryConn(pThreadInfo, iface)){
-            goto OVER;
+            break;
         }
-        pthread_create(pids + i, NULL, specQueryMixThread, pThreadInfo);
+        // main run
+        int ret = pthread_create(pids + i, NULL, specQueryMixThread, pThreadInfo);
+        if (ret != 0) {
+            errorPrint("failed specQueryMixThread create. error code =%d \n", ret);
+            break;
+        }
+        
+        threadCnt ++;
+    }
+
+    bool needExit = false;
+    // if failed, set termainte flag true like ctrl+c exit
+    if (threadCnt != nConcurrent) {
+        needExit = true;
+        g_arguments->terminate = true;
     }
 
     int64_t start = toolsGetTimestampUs();
-    for (int i = 0; i < thread; ++i) {
+    for (int i = 0; i < threadCnt; ++i) {
         pthread_join(pids[i], NULL);
+        closeQueryConn();
+        if (needExit) {
+            benchArrayDestroy(pThreadInfo->query_delay_list);
+            pThreadInfo->query_delay_list = NULL;
+        }
     }
     int64_t end = toolsGetTimestampUs();
+
+    // create 
+    if (needExit) {
+        errorPrint("failed to create thread. expect nConcurrent=%d real threadCnt=%d,  exit testing.\n", nConcurrent, threadCnt);
+        // free current funciton malloc memory
+        tmfree((char *)pids);
+        tmfree((char *)infos);
+        // free sqls
+        freeSpecialQueryInfo();
+        return -1;
+    }
 
     // statistic
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
@@ -690,7 +756,8 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     g_queryInfo.specifiedQueryInfo.totalQueried = 0;
     g_queryInfo.specifiedQueryInfo.totalFail    = 0;
 
-    for (int i = 0; i < thread; ++i) {
+    // clear
+    for (int i = 0; i < nConcurrent; ++i) {
         qThreadInfo * pThreadInfo = infos + i;
         
         // total queries
@@ -707,7 +774,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
         total_delay += pThreadInfo->total_delay;
 
         // free delay
-        tmfree(pThreadInfo->query_delay_list);
+        benchArrayDestroy(pThreadInfo->query_delay_list);
         pThreadInfo->query_delay_list = NULL;
 
         // close conn
@@ -729,7 +796,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
                 "p99: %.6fs, "
                 "max: %.6fs\n",
                 (end - start)/1E6,
-                thread, (int)delay_list->size,
+                threadCnt, (int)delay_list->size,
                 *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
                 (double)total_delay/delay_list->size/1E6,
                 *(int64_t *)(benchArrayGet(delay_list,
@@ -747,10 +814,12 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     benchArrayDestroy(delay_list);
     code = 0;
 
-
-OVER:
     tmfree(pids);
     tmfree(infos);
+
+    // free sqls
+    freeSpecialQueryInfo();
+
     return code;
 }
 
@@ -980,21 +1049,18 @@ int queryTestProcess() {
     uint64_t startTs = toolsGetTimestampMs();
     if (g_queryInfo.specifiedQueryInfo.mixed_query) {
         // mixed
-        if (specQueryMix(g_queryInfo.iface,
-                    g_queryInfo.dbName)) {
+        if (specQueryMix(g_queryInfo.iface, g_queryInfo.dbName)) {
             return -1;
         }
     } else {
         // no mixied
-        if (specQuery(g_queryInfo.iface,
-                    g_queryInfo.dbName)) {
+        if (specQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
             return -1;
         }
     }
 
     // super table
-    if (stbQuery(g_queryInfo.iface,
-                g_queryInfo.dbName)) {
+    if (stbQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
         return -1;
     }
 
