@@ -245,7 +245,7 @@ int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char mark[32] = "xxxx";
     char *pos = strstr(inSql, mark);
     if (0 == pos) {
-        errorPrint("sql format error, super table query not found child table replace mark string '%s'", mark);
+        errorPrint("sql format error, sql not found mark string '%s'", mark);
         return -1;
     }        
 
@@ -256,7 +256,7 @@ int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
     snprintf(outSql + strlen(outSql), TSDB_MAX_ALLOWED_SQL_LEN -1,
-             "%s%s", subTblName, pos + strlen(sourceString));
+             "%s%s", subTblName, pos + strlen(mark));
     return 0;         
 }
 
@@ -846,7 +846,7 @@ int64_t fetchResult(TAOS_RES *res, char * filePath) {
         if (toFile) {
             if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
                 // buff is full
-                appendResultBufToFile(databuf, pThreadInfo->filePath);
+                appendResultBufToFile(databuf, filePath);
                 totalLen = 0;
                 memset(databuf, 0, FETCH_BUFFER_SIZE);
             }

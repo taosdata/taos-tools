@@ -25,7 +25,7 @@ tools_cJSON*   root;
 #define CLIENT_INFO_LEN   20
 static char     g_client_info[CLIENT_INFO_LEN] = {0};
 
-int             g_majorVersionOfClient = 0;
+int32_t         g_majorVersionOfClient = 0;
 // set flag if command passed, see ARG_OPT_ ???
 uint64_t        g_argFlag = 0;
 

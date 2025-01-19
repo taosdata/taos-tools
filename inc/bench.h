@@ -898,6 +898,7 @@ extern bool           g_fail;
 extern char           configDir[];
 extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
+extern int32_t        g_majorVersionOfClient;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define BARRAY_GET_ELEM(array, index) \
