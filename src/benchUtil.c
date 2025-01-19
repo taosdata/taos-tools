@@ -1621,7 +1621,7 @@ void freeSpecialQueryInfo() {
 }
 
 
-#define KILLID_LEN  20
+#define KILLID_LEN  64
 
 void *queryKiller(void *arg) {
     char host[MAX_HOSTNAME_LEN] = {0};
@@ -1662,9 +1662,8 @@ void *queryKiller(void *arg) {
                     char killId[KILLID_LEN] = {0};
                     tstrncpy(killId, (char*)row[0],
                             min(strlen((char*)row[0])+1, KILLID_LEN));
-                    char killCommand[KILLID_LEN + 15] = {0};
-                    snprintf(killCommand, KILLID_LEN + 15,
-                             "KILL QUERY '%s'", killId);
+                    char killCommand[KILLID_LEN + 32] = {0};
+                    snprintf(killCommand, sizeof(killCommand), "KILL QUERY '%s'", killId);
                     TAOS_RES *resKill = taos_query(taos, killCommand);
                     int32_t codeKill = taos_errno(resKill);
                     if (codeKill) {

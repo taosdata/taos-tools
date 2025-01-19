@@ -17,9 +17,12 @@
 int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
     int ret = 0;
 
+    // user cancel
     if (g_arguments->terminate) {
         return -1;
     }
+
+    // execute sql
     uint32_t threadID = pThreadInfo->threadID;
     char dbName[TSDB_DB_NAME_LEN] = {0};
     tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
@@ -57,16 +60,20 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
         debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
     }
 
-    // record succ or fail count
-    if (ret !=0) {
+    // record count
+    if (ret ==0) {
+        // succ
         if (!other) 
             pThreadInfo->nSucc ++;
+    } else {
+        // fail
+        if (!other)
+            pThreadInfo->nFail ++;
+
+        // continue option
         if (YES_IF_FAILED == g_arguments->continueIfFail) {
-            // force continue , so ignore this error
-            ret = 0;
+            ret = 0; // force continue
         }
-    } else if(!other) {
-        pThreadInfo->nFail ++;
     }
 
     return ret;
@@ -102,7 +109,7 @@ int32_t resetQueryCache(qThreadInfo* pThreadInfo) {
 // show rela qps
 int64_t showRealQPS(qThreadInfo* pThreadInfo, int64_t lastPrintTime, int64_t startTs) {
     int64_t now = toolsGetTimestampMs();
-    if (now - lastPrintTime > 30 * 1000) {
+    if (now - lastPrintTime > 10 * 1000) {
         // real total
         uint64_t totalQueried = pThreadInfo->nSucc;
         if(g_arguments->continueIfFail == YES_IF_FAILED) {
