@@ -183,7 +183,7 @@ static void *specQueryMixThread(void *sarg) {
                 *delay = et - st;
                 debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, *delay);
 
-                pThreadInfo->total_delay += (et - st);
+                pThreadInfo->total_delay += *delay;
                 if(benchArrayPush(pThreadInfo->query_delay_list, delay) == NULL){
                     tmfree(delay);
                 }
@@ -264,6 +264,7 @@ static void *specQueryThread(void *sarg) {
         if (ret == 0) {
             // only succ add delay list
             benchArrayPushNoFree(pThreadInfo->query_delay_list, &delay);
+            pThreadInfo->total_delay += delay;
         }
         index++;
 
@@ -353,6 +354,7 @@ static void *stbQueryThread(void *sarg) {
                 if (ret == 0) {
                     // only succ add delay list
                     benchArrayPushNoFree(pThreadInfo->query_delay_list, &delay);
+                    pThreadInfo->total_delay += delay;
                 }
 
                 // show real QPS
@@ -381,7 +383,7 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
     
     // statistic
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
-    int64_t total_delay = 0;
+    double total_delays = 0;
     g_queryInfo.specifiedQueryInfo.totalQueried = 0;
     g_queryInfo.specifiedQueryInfo.totalFail    = 0;
 
@@ -392,13 +394,21 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
         // append delay
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
                 pThreadInfo->query_delay_list->size, false);
-        total_delay += pThreadInfo->total_delay;
+        total_delays += pThreadInfo->total_delay;
 
         // free delay
         benchArrayDestroy(pThreadInfo->query_delay_list);
         pThreadInfo->query_delay_list = NULL;
 
     }
+
+    // succ is zero
+    if (delay_list->size == 0) {
+        errorPrint("succ queries count is zero.\n");
+        benchArrayDestroy(delay_list);
+        return -1;
+    }
+
 
     // sort
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
@@ -417,7 +427,7 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
                 spend/1E6,
                 threadCnt, (int)delay_list->size,
                 *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
-                (double)total_delay/delay_list->size/1E6,
+                (double)total_delays/delay_list->size/1E6,
                 *(int64_t *)(benchArrayGet(delay_list,
                                     (int32_t)(delay_list->size * 0.9)))/1E6,
                 *(int64_t *)(benchArrayGet(delay_list,
@@ -635,8 +645,7 @@ static int specQuery(uint16_t iface, char* dbName) {
         // show QPS and P90 ...
         //
         uint64_t n = 0;
-        double  delays = 0;
-        double  avg_delay = 0.0;
+        double  total_delays = 0.0;
         uint64_t totalQueried = 0;
         uint64_t totalFail    = 0;
         for (int j = 0; j < threadCnt; j++) {
@@ -646,7 +655,7 @@ static int specQuery(uint16_t iface, char* dbName) {
            for (uint64_t k = 0; k < pThreadInfo->query_delay_list->size; k++) {
                 int64_t * delay = benchArrayGet(pThreadInfo->query_delay_list, k);
                 sql->delay_list[n++] = *delay;
-                delays += *delay;
+                total_delays += *delay;
            }
 
            // total queries
@@ -665,7 +674,12 @@ static int specQuery(uint16_t iface, char* dbName) {
         g_queryInfo.specifiedQueryInfo.totalQueried += totalQueried;
         g_queryInfo.specifiedQueryInfo.totalFail    += totalFail;
 
-        avg_delay /= threadCnt;
+        // succ is zero
+        if(totalQueried == 0 || n == 0) {
+            errorPrint("succ queries count is zero.\n");
+            goto OVER;
+        }
+
         qsort(sql->delay_list, n, sizeof(uint64_t), compare);
         int32_t bufLen = strlen(sql->command) + 512;
         char * buf = benchCalloc(bufLen, sizeof(char), false);
@@ -681,7 +695,7 @@ static int specQuery(uint16_t iface, char* dbName) {
                              "SQL command: %s \n",
                              threadCnt, totalQueried,
                              i + 1, spend/1E6, totalQueried / (spend/1E6),
-                             avg_delay / 1E6,              /* avg */
+                             total_delays/n/1E6,           /* avg */
                              sql->delay_list[0] / 1E6,     /* min */
                              sql->delay_list[n - 1] / 1E6, /* max */
                              /*  p90 */
@@ -694,7 +708,7 @@ static int specQuery(uint16_t iface, char* dbName) {
 
         infoPrintNoTimestamp("%s", buf);
         infoPrintNoTimestampToFile("%s", buf);
-        tmfree(buf);                                   
+        tmfree(buf);
     }
 
 OVER:

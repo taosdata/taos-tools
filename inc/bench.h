@@ -866,12 +866,11 @@ typedef struct SQueryThreadInfo_S {
     int32_t   threadID;
     BArray*   query_delay_list;
     int32_t   sockfd;
-    int64_t   total_delay;
+    double   total_delay;
 
     char      filePath[MAX_PATH_LEN];
     uint64_t  start_table_from;
     uint64_t  end_table_to;
-    double    avg_delay;
     uint64_t  ntables;
     uint64_t  querySeq;
 
