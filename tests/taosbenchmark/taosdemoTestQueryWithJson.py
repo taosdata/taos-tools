@@ -195,6 +195,8 @@ class TDTestCase:
         os.system("%s -f ./taosbenchmark/json/queryInsertdata.json" % binPath)
         exceptcode = os.system("%s -f ./taosbenchmark/json/queryQps.json" % binPath)
         assert exceptcode == 0
+        exceptcode = os.system("%s -f ./taosbenchmark/json/queryQps1.json" % binPath)
+        assert exceptcode == 0
 
         # 2021.02.09 need modify taosBenchmakr code
         # use illegal or out of range parameters query json file
