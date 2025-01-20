@@ -404,9 +404,9 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
 
     // succ is zero
     if (delay_list->size == 0) {
-        errorPrint("succ queries count is zero.\n");
+        errorPrint("%s", "succ queries count is zero.\n");
         benchArrayDestroy(delay_list);
-        return -1;
+        return ;
     }
 
 
@@ -676,7 +676,7 @@ static int specQuery(uint16_t iface, char* dbName) {
 
         // succ is zero
         if(totalQueried == 0 || n == 0) {
-            errorPrint("succ queries count is zero.\n");
+            errorPrint("%s", "succ queries count is zero.\n");
             goto OVER;
         }
 
