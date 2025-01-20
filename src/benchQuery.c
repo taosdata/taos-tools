@@ -639,7 +639,6 @@ static int specQuery(uint16_t iface, char* dbName) {
             errorPrint("failed to create thread. expect nConcurrent=%d real threadCnt=%d,  exit testing.\n", nConcurrent, threadCnt);
             goto OVER;
         }
-        ret = 0;
 
         //
         // show QPS and P90 ...
@@ -710,6 +709,7 @@ static int specQuery(uint16_t iface, char* dbName) {
         infoPrintNoTimestampToFile("%s", buf);
         tmfree(buf);
     }
+    ret = 0;
 
 OVER:
     tmfree((char *)pids);
