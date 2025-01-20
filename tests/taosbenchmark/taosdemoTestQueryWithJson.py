@@ -146,6 +146,7 @@ class TDTestCase:
         # use restful api to query
         os.system("%s -f ./taosbenchmark/json/queryInsertrestdata.json" % binPath)
         os.system("%s -f ./taosbenchmark/json/queryRestful.json" % binPath)
+        os.system("%s -f ./taosbenchmark/json/queryRestful1.json" % binPath)
         os.system("cat query_res0.txt*  > all_query_res0_rest.txt")
         os.system("cat query_res1.txt*  > all_query_res1_rest.txt")
         os.system("cat query_res2.txt*  > all_query_res2_rest.txt")
