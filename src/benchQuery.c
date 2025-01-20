@@ -391,7 +391,7 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
         
         // append delay
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
-                pThreadInfo->query_delay_list->size, true);
+                pThreadInfo->query_delay_list->size, false);
         total_delay += pThreadInfo->total_delay;
 
         // free delay
