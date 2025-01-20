@@ -123,8 +123,8 @@ int main(int argc, char* argv[]) {
 #endif
     if (g_arguments->metaFile) {
         g_arguments->totalChildTables = 0;
-        if (readQueryJson(g_arguments->metaFile)) {
-            errorPrint("failed to readQueryJson %s", g_arguments->metaFile);
+        if (readJsonConfig(g_arguments->metaFile)) {
+            errorPrint("failed to readJsonConfig %s\n", g_arguments->metaFile);
             exitLog();
             return -1;
         }

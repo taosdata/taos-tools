@@ -911,7 +911,7 @@ void initArgument();
 void queryAggrFunc();
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
-int readQueryJson(char * file);
+int readJsonConfig(char * file);
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encodeAuthBase64();

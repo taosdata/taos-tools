@@ -2215,7 +2215,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     if (specifiedQuery) {
         code = readSpecQueryJson(specifiedQuery);
         if(code) {
-            errorPrint("failed to readSpecQueryJson code=%d", code);
+            errorPrint("failed to readSpecQueryJson code=%d \n", code);
             return code; 
         }
     }
@@ -2225,7 +2225,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     if (superQuery) {
         code = readSuperQueryJson(superQuery);
         if(code) {
-            errorPrint("failed to readSuperQueryJson code=%d", code);
+            errorPrint("failed to readSuperQueryJson code=%d \n", code);
             return code; 
         }
     }
@@ -2233,14 +2233,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     // only have one
     const char* errType = "json config invalid:";
     if (specifiedQuery && superQuery) {
-        errorPrint("%s only appear one for 'specified_table_query' and 'super_table_query' ", errType);
+        errorPrint("%s only appear one for 'specified_table_query' and 'super_table_query' \n", errType);
         return -1;
     }
 
     // must have one
     if (specifiedQuery == NULL && superQuery == NULL ) {
-        errorPrint("%s must have one for 'specified_table_query' or 'super_table_query' ", errType);
-        return -1;        
+        errorPrint("%s must have one for 'specified_table_query' or 'super_table_query' \n", errType);
+        return -1;
     }
 
     // succ
@@ -2417,7 +2417,7 @@ TMQ_PARSE_OVER:
 }
 #endif
 
-int readQueryJson(char * file) {
+int readJsonConfig(char * file) {
     int32_t code = -1;
     FILE *  fp = fopen(file, "r");
     if (!fp) {
