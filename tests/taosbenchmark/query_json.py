@@ -88,7 +88,11 @@ class TDTestCase:
                 queryTaosc = line.strip().split()[0]
                 assert queryTaosc == "1", "result is %s != expect: 1" % queryTaosc
 
+        # split two
         cmd = "%s -f ./taosbenchmark/json/rest_query.json" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        cmd = "%s -f ./taosbenchmark/json/rest_query1.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 
