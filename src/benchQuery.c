@@ -388,6 +388,9 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
     // clear
     for (int i = 0; i < threadCnt; ++i) {
         qThreadInfo * pThreadInfo = infos + i;
+        if(pThreadInfo->query_delay_list == NULL) {
+            continue;;
+        }
         
         // append delay
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
@@ -651,6 +654,9 @@ static int specQuery(uint16_t iface, char* dbName) {
         uint64_t totalFail    = 0;
         for (int j = 0; j < threadCnt; j++) {
            qThreadInfo *pThreadInfo = infos + j;
+           if(pThreadInfo->query_delay_list == NULL) {
+                continue;;
+           }
            
            // total one sql
            for (uint64_t k = 0; k < pThreadInfo->query_delay_list->size; k++) {
@@ -889,22 +895,29 @@ int queryTestProcess() {
     // start running
     //
 
-    // specified table
+    
     uint64_t startTs = toolsGetTimestampMs();
-    if (g_queryInfo.specifiedQueryInfo.mixed_query) {
-        // mixed
-        if (specQueryMix(g_queryInfo.iface, g_queryInfo.dbName)) {
+    if(g_queryInfo.specifiedQueryInfo.sqls && g_queryInfo.specifiedQueryInfo.sqls->size > 0) {
+        // specified table
+        if (g_queryInfo.specifiedQueryInfo.mixed_query) {
+            // mixed
+            if (specQueryMix(g_queryInfo.iface, g_queryInfo.dbName)) {
+                return -1;
+            }
+        } else {
+            // no mixied
+            if (specQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
+                return -1;
+            }
+        }
+    } else if(g_queryInfo.superQueryInfo.sqlCount > 0) {
+        // super table
+        if (stbQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
             return -1;
         }
     } else {
-        // no mixied
-        if (specQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
-            return -1;
-        }
-    }
-
-    // super table
-    if (stbQuery(g_queryInfo.iface, g_queryInfo.dbName)) {
+        // nothing
+        errorPrint("%s\n", "Both 'specified_table_query' and 'super_table_query' sqls is empty.");
         return -1;
     }
 
