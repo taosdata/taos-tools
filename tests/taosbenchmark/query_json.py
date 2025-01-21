@@ -74,6 +74,10 @@ class TDTestCase:
         cmd = "%s -f ./taosbenchmark/json/taosc_query.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        cmd = "%s -f ./taosbenchmark/json/taosc_query1.json" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+
         with open("%s" % "taosc_query_specified-0", "r+") as f1:
             for line in f1.readlines():
                 queryTaosc = line.strip().split()[0]
