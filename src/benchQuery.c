@@ -833,7 +833,7 @@ void totalQuery(int64_t spends) {
     // error rate
     char errRate[128] = "";
     if(g_arguments->continueIfFail == YES_IF_FAILED) {
-        uint16_t totalFail = g_queryInfo.specifiedQueryInfo.totalFail + g_queryInfo.superQueryInfo.totalFail;
+        uint64_t totalFail = g_queryInfo.specifiedQueryInfo.totalFail + g_queryInfo.superQueryInfo.totalFail;
         if (totalQueried > 0) {
             snprintf(errRate, sizeof(errRate), " Error %" PRIu64 " Rate:%.3f%%", totalFail, ((float)totalFail * 100)/totalQueried);
         }
