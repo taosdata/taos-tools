@@ -384,8 +384,6 @@ void totalChildQuery(qThreadInfo* infos, int threadCnt, int64_t spend) {
     // statistic
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
     double total_delays = 0;
-    g_queryInfo.specifiedQueryInfo.totalQueried = 0;
-    g_queryInfo.specifiedQueryInfo.totalFail    = 0;
 
     // clear
     for (int i = 0; i < threadCnt; ++i) {
@@ -509,6 +507,10 @@ static int stbQuery(uint16_t iface, char* dbName) {
         g_arguments->terminate = true;
         goto OVER;
     }
+
+    // reset total
+    g_queryInfo.superQueryInfo.totalQueried = 0;
+    g_queryInfo.superQueryInfo.totalFail    = 0;
 
     // real thread count
     g_queryInfo.superQueryInfo.threadCnt = threadCnt;
@@ -776,6 +778,10 @@ static int specQueryMix(uint16_t iface, char* dbName) {
         g_arguments->terminate = true;
     }
 
+    // reset total
+    g_queryInfo.specifiedQueryInfo.totalQueried = 0;
+    g_queryInfo.specifiedQueryInfo.totalFail    = 0;
+
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < threadCnt; ++i) {
         pthread_join(pids[i], NULL);
@@ -820,18 +826,6 @@ OVER:
 
 // total query for end 
 void totalQuery(int64_t spends) {
-    // specifiedQuery
-    if (g_queryInfo.specifiedQueryInfo.totalQueried) {
-        infoPrint("Total specified queries: %" PRIu64 "\n",
-              g_queryInfo.specifiedQueryInfo.totalQueried);
-    }
-    
-    // superQuery
-    if (g_queryInfo.superQueryInfo.totalQueried) {
-        infoPrint("Total super queries: %" PRIu64 "\n",
-                g_queryInfo.superQueryInfo.totalQueried);
-    }
-
     // total QPS
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
         + g_queryInfo.superQueryInfo.totalQueried;
@@ -841,7 +835,7 @@ void totalQuery(int64_t spends) {
     if(g_arguments->continueIfFail == YES_IF_FAILED) {
         uint16_t totalFail = g_queryInfo.specifiedQueryInfo.totalFail + g_queryInfo.superQueryInfo.totalFail;
         if (totalQueried > 0) {
-            snprintf(errRate, sizeof(errRate), " Error Rate:%.3f%%", ((float)totalFail * 100)/totalQueried);
+            snprintf(errRate, sizeof(errRate), " Error %“ PRIu64 ” Rate:%.3f%%", totalFail, ((float)totalFail * 100)/totalQueried);
         }
     }
 
