@@ -743,9 +743,9 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     int start_sql     = 0;
     int a             = total_sql_num / nConcurrent;
     if (a < 1) {
+        warnPrint("sqls num:%d < concurent:%d, so set concurrent to %d\n", total_sql_num, nConcurrent, nConcurrent);
         nConcurrent = total_sql_num;
         a = 1;
-        warnPrint("sqls num:%d < concuurent:%d, so set concurrent to %d\n", total_sql_num, nConcurrent, nConcurrent);
     }
     int b = 0;
     if (nConcurrent != 0) {
