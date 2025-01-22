@@ -1797,8 +1797,10 @@ int32_t readSpecQueryJson(tools_cJSON * specifiedQuery) {
         if (tools_cJSON_IsString(mixedQueryObj)) {
             if (0 == strcasecmp(mixedQueryObj->valuestring, "yes")) {
                 g_queryInfo.specifiedQueryInfo.mixed_query = true;
+                infoPrint("%s\n","mixed_query is True");
             } else if (0 == strcasecmp(mixedQueryObj->valuestring, "no")) {
                 g_queryInfo.specifiedQueryInfo.mixed_query = false;
+                infoPrint("%s\n","mixed_query is False");
             } else {
                 errorPrint("Invalid mixed_query value: %s\n",
                            mixedQueryObj->valuestring);

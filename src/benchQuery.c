@@ -13,8 +13,8 @@
 #include <bench.h>
 #include "benchLog.h"
 
-// query and get result  other true is no test sql
-int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
+// query and get result  record is true to total request
+int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool record) {
     int ret = 0;
 
     // user cancel
@@ -49,7 +49,7 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
             ret = -1;
         } else {
             // succ query
-            if (!other)
+            if (record)
                 rows = fetchResult(res, pThreadInfo->filePath);
         }
 
@@ -63,11 +63,11 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
     // record count
     if (ret ==0) {
         // succ
-        if (!other) 
+        if (record) 
             pThreadInfo->nSucc ++;
     } else {
         // fail
-        if (!other)
+        if (record)
             pThreadInfo->nFail ++;
 
         // continue option
@@ -92,7 +92,7 @@ void autoSleep(uint64_t st, uint64_t et) {
 // reset 
 int32_t resetQueryCache(qThreadInfo* pThreadInfo) {    
     // execute sql 
-    if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE", true)) {
+    if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE", false)) {
         errorPrint("%s() LN%d, reset query cache failed\n", __func__, __LINE__);
         return -1;
     }
@@ -166,7 +166,7 @@ static void *specQueryMixThread(void *sarg) {
 
             // execute sql
             st = toolsGetTimestampUs();
-            int ret = selectAndGetResult(pThreadInfo, sql->command, false);
+            int ret = selectAndGetResult(pThreadInfo, sql->command, true);
             if (ret) {
                 g_fail = true;
                 errorPrint("failed call mix selectAndGetResult, i=%d j=%d", i, j);
@@ -247,7 +247,7 @@ static void *specQueryThread(void *sarg) {
 
         // execute sql
         st = toolsGetTimestampUs();
-        int ret = selectAndGetResult(pThreadInfo, sql->command, false);
+        int ret = selectAndGetResult(pThreadInfo, sql->command, true);
         if (ret) {
             g_fail = true;
             errorPrint("failed call spec selectAndGetResult, index=%d\n", index);
@@ -341,7 +341,7 @@ static void *stbQueryThread(void *sarg) {
 
                 // execute sql
                 uint64_t s = toolsGetTimestampUs();
-                int ret = selectAndGetResult(pThreadInfo, sqlstr, false);
+                int ret = selectAndGetResult(pThreadInfo, sqlstr, true);
                 if (ret) {
                     // found error
                     errorPrint("failed call stb selectAndGetResult, i=%d j=%d\n", i, j);
@@ -745,6 +745,7 @@ static int specQueryMix(uint16_t iface, char* dbName) {
     if (a < 1) {
         nConcurrent = total_sql_num;
         a = 1;
+        warnPrint("sqls num:%d < concuurent:%d, so set concurrent to %d\n", total_sql_num, nConcurrent, nConcurrent);
     }
     int b = 0;
     if (nConcurrent != 0) {
@@ -841,7 +842,7 @@ void totalQuery(int64_t spends) {
     if(g_arguments->continueIfFail == YES_IF_FAILED) {
         uint64_t totalFail = g_queryInfo.specifiedQueryInfo.totalFail + g_queryInfo.superQueryInfo.totalFail;
         if (totalQueried > 0) {
-            snprintf(errRate, sizeof(errRate), " Error %" PRIu64 " Rate:%.3f%%", totalFail, ((float)totalFail * 100)/totalQueried);
+            snprintf(errRate, sizeof(errRate), " ,error %" PRIu64 " (rate:%.3f%%)", totalFail, ((float)totalFail * 100)/totalQueried);
         }
     }
 
