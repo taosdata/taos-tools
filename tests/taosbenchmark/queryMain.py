@@ -231,9 +231,9 @@ class TDTestCase:
     def threeQueryMode(self, benchmark, tbCnt, tbRow):
         # json
         args = [
-            ["taosbenchmark/json/queryMode1", True],
-            ["taosbenchmark/json/queryMode2", True],
-            ["taosbenchmark/json/queryMode3", False]
+            ["taosbenchmark/json/queryModeSpec", True],
+            ["taosbenchmark/json/queryModeSpecMix", True],
+            ["taosbenchmark/json/queryModeSuper", False]
         ]
 
         # native
@@ -255,10 +255,10 @@ class TDTestCase:
     # check excption
     def exceptTest(self, benchmark, tbCnt, tbRow):
         # 'specified_table_query' and 'super_table_query' error
-        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryError1.json")
-        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryError2.json")
+        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryErrorNoSpecSuper.json")
+        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryErrorBothSpecSuper.json")
         # json format error
-        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryError3.json")
+        self.expectFailed(f"{benchmark} -f  taosbenchmark/json/queryErrorFormat.json")
 
 
 
