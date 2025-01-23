@@ -80,11 +80,9 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool record) {
 }
 
 // interlligent sleep
-void autoSleep(uint64_t delay) {
-    if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-        delay < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval * 1000) {
-        toolsMsleep((int32_t)(
-                g_queryInfo.specifiedQueryInfo.queryInterval*1000 - delay));  // ms
+void autoSleep(uint64_t interval, uint64_t delay ) {
+    if (delay < interval * 1000) {
+        toolsMsleep((int32_t)(interval * 1000 - delay));  // ms
     }
 }
 
@@ -145,6 +143,7 @@ static void *specQueryMixThread(void *sarg) {
     int64_t startTs = toolsGetTimestampMs();
     int64_t lastPrintTime = startTs;
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
+    uint64_t interval = g_queryInfo.specifiedQueryInfo.queryInterval;
     pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(int64_t));
     for (int i = pThreadInfo->start_sql; i <= pThreadInfo->end_sql; ++i) {
         SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
@@ -174,7 +173,9 @@ static void *specQueryMixThread(void *sarg) {
             et = toolsGetTimestampUs();
 
             // sleep
-            autoSleep(et - st);
+            if (interval > 0) {
+                autoSleep(interval, et - st);
+            }
 
             // delay
             if (ret == 0) {
@@ -217,6 +218,7 @@ static void *specQueryThread(void *sarg) {
     }
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
+    uint64_t  interval   = g_queryInfo.specifiedQueryInfo.queryInterval;
     pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(int64_t));
 
     uint64_t  startTs       = toolsGetTimestampMs();
@@ -255,7 +257,10 @@ static void *specQueryThread(void *sarg) {
         et = toolsGetTimestampUs();
 
         // sleep
-        autoSleep(et - st);
+        if (interval > 0) {
+            autoSleep(interval, et - st);
+        }
+
 
         uint64_t delay = et - st;
         debugPrint("%s() LN%d, delay: %"PRIu64"\n", __func__, __LINE__, delay);
@@ -286,6 +291,7 @@ static void *stbQueryThread(void *sarg) {
     uint64_t et = 0;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
+    uint64_t interval   = g_queryInfo.superQueryInfo.queryInterval;
     pThreadInfo->query_delay_list = benchArrayInit(queryTimes, sizeof(uint64_t));
     
     uint64_t startTs = toolsGetTimestampMs();
@@ -362,7 +368,10 @@ static void *stbQueryThread(void *sarg) {
         et = toolsGetTimestampMs();
 
         // sleep
-        autoSleep(et - st);
+        if (interval > 0) {
+            autoSleep(interval, et - st);
+        }
+
     }
     tmfree(sqlstr);
 
