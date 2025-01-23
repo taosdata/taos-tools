@@ -251,7 +251,7 @@ int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
     char subTblName[TSDB_TABLE_NAME_LEN];
     snprintf(subTblName, TSDB_TABLE_NAME_LEN,
-            "`%s`.`%s`", g_queryInfo.dbName,
+            "`%s`.%s", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
