@@ -323,7 +323,6 @@ static void *stbQueryThread(void *sarg) {
                     infoPrint("%s\n", "user cancel , so exit testing.");
                     break;
                 }
-
                 
                 // get real child name sql
                 if (replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr, i)) {
