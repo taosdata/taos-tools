@@ -251,11 +251,11 @@ int32_t replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
     char subTblName[TSDB_TABLE_NAME_LEN];
     snprintf(subTblName, TSDB_TABLE_NAME_LEN,
-            "%s.%s", g_queryInfo.dbName,
+            "`%s`.`%s`", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
-    snprintf(outSql + strlen(outSql), TSDB_MAX_ALLOWED_SQL_LEN -1,
+    snprintf(outSql + pos - inSql + 1, TSDB_MAX_ALLOWED_SQL_LEN - 1,
              "%s%s", subTblName, pos + strlen(mark));
     return 0;         
 }
@@ -1709,11 +1709,11 @@ int fetchChildTableName(char *dbName, char *stbName) {
     char  cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
     if (3 == g_majorVersionOfClient) {
         snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-                "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
+                "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM `%s`.`%s`)",
                 dbName, stbName);
     } else {
         snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-                    "SELECT COUNT(TBNAME) FROM %s.%s",
+                    "SELECT COUNT(TBNAME) FROM `%s`.`%s`",
                 dbName, stbName);
     }
     TAOS_RES *res = taos_query(conn->taos, cmd);

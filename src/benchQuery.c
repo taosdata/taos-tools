@@ -80,12 +80,11 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool record) {
 }
 
 // interlligent sleep
-void autoSleep(uint64_t st, uint64_t et) {
+void autoSleep(uint64_t delay) {
     if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-        (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval * 1000) {
+        delay < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval * 1000) {
         toolsMsleep((int32_t)(
-                    g_queryInfo.specifiedQueryInfo.queryInterval*1000
-                    - (et - st)));  // ms
+                g_queryInfo.specifiedQueryInfo.queryInterval*1000 - delay));  // ms
     }
 }
 
@@ -175,7 +174,7 @@ static void *specQueryMixThread(void *sarg) {
             et = toolsGetTimestampUs();
 
             // sleep
-            autoSleep(st, et);
+            autoSleep(et - st);
 
             // delay
             if (ret == 0) {
@@ -256,7 +255,7 @@ static void *specQueryThread(void *sarg) {
         et = toolsGetTimestampUs();
 
         // sleep
-        autoSleep(st, et);
+        autoSleep(et - st);
 
         uint64_t delay = et - st;
         debugPrint("%s() LN%d, delay: %"PRIu64"\n", __func__, __LINE__, delay);
@@ -364,7 +363,7 @@ static void *stbQueryThread(void *sarg) {
         et = toolsGetTimestampMs();
 
         // sleep
-        autoSleep(st, et);
+        autoSleep(et - st);
     }
     tmfree(sqlstr);
 

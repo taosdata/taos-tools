@@ -2169,7 +2169,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     tools_cJSON *gKillSlowQueryInterval =
         tools_cJSON_GetObjectItem(json, "kill_slow_query_interval");
     if (tools_cJSON_IsNumber(gKillSlowQueryInterval)) {
-        g_queryInfo.killQueryInterval = gKillSlowQueryInterval ->valueint;
+        g_queryInfo.killQueryInterval = gKillSlowQueryInterval->valueint;
     } else {
         g_queryInfo.killQueryInterval = 1;  /* by default, interval 1s */
     }
