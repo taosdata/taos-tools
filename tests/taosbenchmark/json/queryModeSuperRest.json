@@ -13,7 +13,7 @@
 	"super_table_query": {
 		"stblname": "meters",
 		"concurrent": 3,
-		"query_interval": 1,
+		"query_interval": 0,
 		"sqls": [
 			{
 				"sql": "select last_row(ts) from xxxx",
