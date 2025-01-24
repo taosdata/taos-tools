@@ -156,6 +156,7 @@ class TDTestCase:
         # TS-5846
         keys = ["completed total queries: 40"]
         self.benchmarkQuery(benchmark, "./taosbenchmark/json/TS-5846-Query.json", keys)
+        keys = ["completed total queries: 20"]
         self.benchmarkQuery(benchmark, "./taosbenchmark/json/TS-5846-Mixed-Query.json", keys)
 
     # bugs td
