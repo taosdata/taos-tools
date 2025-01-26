@@ -772,14 +772,11 @@ jobs:
           gcov -abcfu ${topdir}/taos-tools/src/benchData.c -o src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ${topdir}/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchTmq.c -o src/CMakeFiles/taosBenchmark.dir/benchTmq.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
-          lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
-          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
-          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/src/tools*" -o ${topdir}/coverage/lcov.info
+          lcov --ignore-errors negative,unused -c -d . -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
         if:

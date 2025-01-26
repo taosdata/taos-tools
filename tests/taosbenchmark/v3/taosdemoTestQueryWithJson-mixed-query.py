@@ -119,6 +119,7 @@ class TDTestCase:
         # taosc query: query specified  table  and query  super table
         os.system("%s -f ./taosbenchmark/json/queryInsertdata.json" % binPath)
         os.system("%s -f ./taosbenchmark/json/queryTaosc-mixed-query.json" % binPath)
+        os.system("%s -f ./taosbenchmark/json/queryTaosc-mixed-query1.json" % binPath)
         os.system("cat query_res2.txt* > all_query_res2_taosc.txt")
 
         # correct Times testcases
@@ -136,6 +137,7 @@ class TDTestCase:
         # use restful api to query
         os.system("%s -f ./taosbenchmark/json/queryInsertrestdata.json" % binPath)
         os.system("%s -f ./taosbenchmark/json/queryRestful.json" % binPath)
+        os.system("%s -f ./taosbenchmark/json/queryRestful1.json" % binPath)
         os.system("cat query_res2.txt*  > all_query_res2_rest.txt")
 
         # correct Times testcases

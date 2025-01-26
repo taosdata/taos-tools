@@ -117,6 +117,9 @@ class TDTestCase:
         # taosc query: query specified  table  and query  super table
         os.system("%s -f ./taosbenchmark/json/queryInsertdata.json" % binPath)
         os.system("%s -f ./taosbenchmark/json/queryTaosc.json" % binPath)
+        # forbid parallel spec query with super query
+        os.system("%s -f ./taosbenchmark/json/queryTaosc1.json" % binPath)
+
         os.system("cat query_res0.txt* > all_query_res0_taosc.txt")
         os.system("cat query_res1.txt* > all_query_res1_taosc.txt")
         os.system("cat query_res2.txt* > all_query_res2_taosc.txt")
@@ -143,6 +146,7 @@ class TDTestCase:
         # use restful api to query
         os.system("%s -f ./taosbenchmark/json/queryInsertrestdata.json" % binPath)
         os.system("%s -f ./taosbenchmark/json/queryRestful.json" % binPath)
+        os.system("%s -f ./taosbenchmark/json/queryRestful1.json" % binPath)
         os.system("cat query_res0.txt*  > all_query_res0_rest.txt")
         os.system("cat query_res1.txt*  > all_query_res1_rest.txt")
         os.system("cat query_res2.txt*  > all_query_res2_rest.txt")
@@ -190,6 +194,8 @@ class TDTestCase:
         # query result print QPS
         os.system("%s -f ./taosbenchmark/json/queryInsertdata.json" % binPath)
         exceptcode = os.system("%s -f ./taosbenchmark/json/queryQps.json" % binPath)
+        assert exceptcode == 0
+        exceptcode = os.system("%s -f ./taosbenchmark/json/queryQps1.json" % binPath)
         assert exceptcode == 0
 
         # 2021.02.09 need modify taosBenchmakr code
