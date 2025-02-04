@@ -129,7 +129,7 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_DEPENDENCY_TESTS=false > /dev/null && make -j12 > /dev/null && sudo make install > /dev/null
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null && make -j12 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/bin/taosd ]] || [[ ! -f /usr/local/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -166,7 +166,7 @@ jobs:
           cp ./TDengine/debug/build/lib/libtaosws.dylib debug/build/lib/
           cp ./TDengine/debug/build/lib/libtaos.dylib debug/build/lib/          
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           if [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
