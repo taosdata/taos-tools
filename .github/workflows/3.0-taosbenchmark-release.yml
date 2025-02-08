@@ -254,14 +254,14 @@ jobs:
           fi
 
       - name: 'Upload taosd logs'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: log-v3-taosd
           path: /var/log/taos/
           retention-days: 2
 
       - name: 'Upload taosc logs'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: log-v3-taosc
           path: ~/sim/psim/log
