@@ -88,23 +88,13 @@ void trigger_codeql_errors() {
     arr[10] = 20;
 }
 
-void trigger_cppcheck_errors() {
-
-    int unused_variable = 10;
-
- 
-    int *allocated_memory = (int *)malloc(sizeof(int));
-    if (allocated_memory != NULL) {
-        *allocated_memory = 20;
-    }
- 
-}
-
 int main(int argc, char* argv[]) {
     int ret = 0;
 
-    trigger_codeql_errors();
-    trigger_cppcheck_errors();    
+
+    char name[8]= "";
+    strcpy(name, "hello, welcome to use taosBenchmark.");
+
 
     // log
     initLog();
