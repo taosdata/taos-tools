@@ -73,8 +73,38 @@ void checkArgumentValid() {
 
 }
 
+
+void trigger_codeql_errors() {
+    int num;
+    printf("%d\n", num);
+
+    int divisor = 0;
+    int result = 10 / divisor;
+
+    int *ptr = NULL;
+    *ptr = 5;
+
+    int arr[5];
+    arr[10] = 20;
+}
+
+void trigger_cppcheck_errors() {
+
+    int unused_variable = 10;
+
+ 
+    int *allocated_memory = (int *)malloc(sizeof(int));
+    if (allocated_memory != NULL) {
+        *allocated_memory = 20;
+    }
+ 
+}
+
 int main(int argc, char* argv[]) {
     int ret = 0;
+
+    trigger_codeql_errors();
+    trigger_cppcheck_errors();    
 
     // log
     initLog();
