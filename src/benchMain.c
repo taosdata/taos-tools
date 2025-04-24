@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
 
 
-    char name = malloc(10);
+    char* name = malloc(10);
     strcpy(name, "hello, welcome to use taosBenchmark.");
     free(name);
 
