@@ -73,21 +73,6 @@ void checkArgumentValid() {
 
 }
 
-
-void trigger_codeql_errors() {
-    int num;
-    printf("%d\n", num);
-
-    int divisor = 0;
-    int result = 10 / divisor;
-
-    int *ptr = NULL;
-    *ptr = 5;
-
-    int arr[5];
-    arr[10] = 20;
-}
-
 int main(int argc, char* argv[]) {
     int ret = 0;
 
