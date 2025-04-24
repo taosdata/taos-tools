@@ -25,7 +25,7 @@ from util.sql import *
 from util.dnodes import *
 from util.dnodes import tdDnodes
 
-
+# add test log 
 # reomve single and double quotation
 def removeQuotation(origin):
     value = ""
