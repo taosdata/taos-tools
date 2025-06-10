@@ -25,6 +25,9 @@ if(NOT WIN32)
     set(BoldWhite   "${Esc}[1;37m")
 endif()
 
+# Fix gcc 11.2.0 warnings: "argument 2 null where non-null expected"
+add_compile_options(-Wno-error=nonnull)
+
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     find_package(PkgConfig REQUIRED)
 

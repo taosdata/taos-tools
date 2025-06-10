@@ -383,31 +383,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             )
             MESSAGE(STATUS "src's cmake detected current OS is " ${OS_ID} "")
 
-            IF (${OS_ID} MATCHES "arch")
-                MESSAGE(STATUS "${OS_ID} linux has no libatomic.a, use dynamic lib instead of")
-            ELSE ()
-                EXECUTE_PROCESS (
-                    COMMAND gcc -print-file-name=libatomic.a
-                    OUTPUT_VARIABLE LIBATOMIC_PATH
-                )
-                STRING(STRIP "${LIBATOMIC_PATH}" LIBATOMIC_PATH)
-                MESSAGE(STATUS "libatomic.a path: ${LIBATOMIC_PATH}")
-                ADD_LIBRARY(atomic STATIC IMPORTED)
-                SET_PROPERTY(TARGET atomic PROPERTY IMPORTED_LOCATION "${LIBATOMIC_PATH}")
-            ENDIF ()
-
             ADD_LIBRARY(avro STATIC IMPORTED)
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
-
-            EXECUTE_PROCESS (
-                    COMMAND gcc -print-file-name=libstdc++.a
-                    OUTPUT_VARIABLE LIBSTDCXX_PATH
-            )
-            STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
-            MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
-            ADD_LIBRARY(stdc++ STATIC IMPORTED)
-            SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
             EXECUTE_PROCESS (
                     COMMAND gcc -print-file-name=libz.a
